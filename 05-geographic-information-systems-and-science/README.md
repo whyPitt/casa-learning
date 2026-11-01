@@ -1,6 +1,6 @@
 # CASA0005 · Geographic Information Systems and Science
 
-前四周 Practical 和 Homework，包含 R 代码、简要说明与结果图；项目入口为 `casa0005.Rproj`。
+Practical 和 Homework，包含 R 代码、简要说明与结果图；项目入口为 `casa0005.Rproj`。
 
 | 周次 | Practical | Homework | 结果图 |
 |---|---|---|---|
