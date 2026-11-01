@@ -4,12 +4,12 @@
 
 | 周次 | Practical | Homework | 结果图 |
 |---|---|---|---|
-| 01 | [Rmd](week01/practical-中文教程.Rmd) · [HTML](week01/practical.html) | [新西兰 Rmd](week01/homework.Rmd) · [HTML](week01/homework.html) | [受薪雇员地图](week01/results/nz-paid-employees.png) |
-| 02 | [Rmd](week02/practical-中文教程.Rmd) · [HTML](week02/practical.html) | [Washington Rmd](week02/homework.Rmd) · [HTML](week02/homework.html) | [Science 县级比较](week02/results/washington-science.png) |
-| 03 | [Rmd](week03/practical-中文教程.Rmd) · [HTML](week03/practical.html) | [未来气温 Rmd](week03/homework.Rmd) · [HTML](week03/homework.html) | [情景差值地图](week03/results/australia-scenario-difference-map.png) |
-| 04 | [Rmd](week04/practical-中文教程.Rmd) · [HTML](week04/practical.html) | [GII Rmd](week04/homework.Rmd) · [HTML](week04/homework.html) | [2010–2019 差值](week04/results/gii-change.png) |
+| 01 | [Rmd](week01/practical-中文教程.Rmd) | [新西兰 Rmd](week01/homework.Rmd) | [受薪雇员地图](week01/results/nz-paid-employees.png) |
+| 02 | [Rmd](week02/practical-中文教程.Rmd) | [Washington Rmd](week02/homework.Rmd) | [Science 县级比较](week02/results/washington-science.png) |
+| 03 | [Rmd](week03/practical-中文教程.Rmd) | [未来气温 Rmd](week03/homework.Rmd) | [情景差值地图](week03/results/australia-scenario-difference-map.png) |
+| 04 | [Rmd](week04/practical-中文教程.Rmd) | [GII Rmd](week04/homework.Rmd) | [2010–2019 差值](week04/results/gii-change.png) |
 
-HTML 为运行报告，下载后用浏览器打开；PNG 可在 GitHub 直接查看。每周 `results/` 保存选定的派生成果。
+GitHub 保留 Rmd、PNG 和选定数据成果；HTML 报告仅在本地保存。PNG 可直接查看。每周 `results/` 保存选定的派生成果。
 
 - Week 1：伦敦 33 区连接；新西兰 67 个 TA 的 2018 受薪雇员人数。另有[相对路径 QGIS 项目](week01/qgis/london-flytipping.qgz)及配套 GeoPackage。
 - Week 2：39 县匹配；完整公开记录的 Science 州基准 47.47%，17 县高于、22 县低于。保密排除记录意味着结果不代表完整学生总体。
