@@ -4,69 +4,37 @@ output:
   html_document:
     toc: true
     toc_depth: 3
-params:
-  execute: true
 editor_options:
   chunk_output_type: console
 ---
 
 以 UNDP HDR 2025 的 GII 时间序列连接 Esri World Countries Generalized，比较 2010–2019 年性别不平等指数变化。差值定义为 **GII 2019 − GII 2010**；负值表示该指标下降，正值表示上升。
 
-GII 范围为 0–1；差值是指数值之差，不是人数、百分比或百分点。任一年缺失或连接未匹配时保留 NA，不归为“无变化”。描述地图不用于识别政策因果效果。
-
-项目为课程 `casa0005.Rproj`。普通 Knit 重新计算分析；文末 `render-report` 也可生成报告。安装、下载、导出和渲染块自身保持 `eval=FALSE`。
+GII 范围为 0–1；差值是指数值之差，不是人数、百分比或百分点。任一年缺失或连接未匹配时保留 NA，不归为“无变化”。
 
 ## 结果摘要
 
-244 条地图边界记录中，154 条有完整两年差值：145 条 GII 下降、9 条上升；90 条缺失或未匹配。负差值表示该指标下降，不据此推断政策因果效果。
+244 条地图边界记录中，154 条有完整两年差值：145 条 GII 下降、9 条上升；90 条缺失或未匹配。
 
 ## 环境
 
 ```{r setup, include=FALSE, eval=TRUE}
-execute_report <- if (exists("params", inherits = FALSE)) isTRUE(params$execute) else TRUE
-knitr::opts_chunk$set(eval = execute_report, echo = TRUE, warning = TRUE, message = TRUE,
-                      dev = "ragg_png", dpi = 120)
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, dev = "ragg_png", dpi = 120)
 ```
 
 ### 依赖安装（缺包时）
 
-依赖装入课程 `.local-review/R-library`；Mac 使用二进制包。
-
 ```{r install-if-needed, eval=FALSE}
-helper_candidates <- c("tutorial-tools.R", "../tutorial-tools.R") # 兼容项目根目录与本周目录
-helper_file <- helper_candidates[file.exists(helper_candidates)] # 只保留真实存在的工具文件
-stopifnot(length(helper_file) >= 1L) # 没找到时停止，先确认打开了课程项目
-source(helper_file[1]) # 共用检查函数
-root <- gis_root() # 向上寻找含 casa0005.Rproj 的课程根目录
-local_lib <- file.path(root, ".local-review", "R-library") # 课程内的包安装位置
-dir.create(local_lib, recursive = TRUE, showWarnings = FALSE) # 需要时创建目录
-.libPaths(c(local_lib, .libPaths())) # 先查本地库，再查已有系统库
-required <- c("sf", "tidyverse", "tmap", "countrycode", "jsonlite", "ragg", "readxl", "rmarkdown", "knitr") # 本稿需要的包名向量
-missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)] # 仅找缺包
-if (length(missing) > 0L) { # 没有缺包就不安装、不更新
-  options(timeout = max(1200, getOption("timeout"))) # 给较大包足够的下载时间
-  package_type <- if (Sys.info()[["sysname"]] == "Darwin") "binary" else getOption("pkgType")
-  install.packages(missing, lib = local_lib, repos = "https://cloud.r-project.org", type = package_type)
-}
+install.packages(c("sf", "tidyverse", "tmap", "countrycode", "jsonlite", "ragg", "readxl", "rmarkdown", "knitr", "here"))
 ```
 
 ### 包与项目路径
 
 ```{r packages-and-root}
-helper_candidates <- c("tutorial-tools.R", "../tutorial-tools.R") # 两种支持的相对位置
-helper_file <- helper_candidates[file.exists(helper_candidates)] # 找已有工具文件
-stopifnot(length(helper_file) >= 1L) # 路径不对时先停止
-source(helper_file[1]) # 共用检查函数
-root <- gis_root() # 得到课程根目录，不写个人电脑的绝对路径
-local_lib <- file.path(root, ".local-review", "R-library") # 找课程本地包库
-if (dir.exists(local_lib)) .libPaths(c(local_lib, .libPaths())) # 重启 R 后重新识别本地包
-gis_packages(c("sf", "tidyverse", "tmap", "countrycode", "jsonlite", "ragg", "readxl", "rmarkdown")) # 检查所需包可加载
-stopifnot(utils::packageVersion("tmap") >= package_version("4.0.0")) # 本稿使用tmap4接口
-stopifnot(utils::packageVersion("dplyr") >= package_version("1.1.1")) # relationship参数从1.1.1引入
-library(sf) # 读入、检查和连接带 geometry 的矢量表
-library(tidyverse) # 提供 readr、dplyr、ggplot2 等数据处理函数
-library(tmap) # 使用 tmap 4.x 的专题制图接口
-getwd() # 查看当前工作目录，确认没有临时切到下载文件夹
+root <- here::here()
+library(sf)
+library(tidyverse)
+library(tmap)
 ```
 
 ## 数据版本与下载路径
@@ -74,88 +42,39 @@ getwd() # 查看当前工作目录，确认没有临时切到下载文件夹
 UNDP HDR 2025 完整时间序列包含 `gii_2010` 和 `gii_2019`；历史数值可能随版本修订。世界边界使用教程指定 Esri 图层的官方 FeatureServer GeoJSON 接口，未更换数据集。边界为概化版本，不视作两年各自的精确历史边界。
 
 ```{r input-paths}
-raw_dir <- file.path(root, "data", "raw", "week04") # 原始输入只在本地保存
-dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE) # 没有目录时建立它
-undp_url <- "https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_complete_time_series.csv" # 官方HDR25时间序列
-metadata_url <- "https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_metadata.xlsx" # 同版本字段说明
-world_layer_url <- paste0( # 拼接的是老师指定 Esri 图层的服务根路径
-  "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/", # Esri官方服务所在组织
-  "World_Countries_(Generalized)/FeatureServer/0") # 老师链接的世界国家面图层
-world_url <- paste0(world_layer_url, "/query?where=1%3D1&outFields=*&outSR=4326&f=geojson") # 全部字段与WGS84几何
-world_count_url <- paste0(world_layer_url, "/query?where=1%3D1&returnCountOnly=true&f=json") # 同一图层的计数请求
-undp_file <- file.path(raw_dir, "HDR25_Composite_indices_complete_time_series.csv") # 固定版本文件名
-metadata_file <- file.path(raw_dir, "HDR25_Composite_indices_metadata.xlsx") # 保留变量定义
-world_file <- file.path(raw_dir, "world-countries-generalized.geojson") # 地理边界文件
-world_count_file <- file.path(raw_dir, "world-countries-count.json") # 同批下载的预期要素数
-file.exists(c(undp_file, metadata_file, world_file, world_count_file)) # 查看哪些输入已经存在
+raw_dir <- file.path(root, "data", "raw", "week04")
+dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
+undp_url <- "https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_complete_time_series.csv"
+metadata_url <- "https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_metadata.xlsx"
+world_layer_url <- paste0(
+  "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/",
+  "World_Countries_(Generalized)/FeatureServer/0")
+world_url <- paste0(world_layer_url, "/query?where=1%3D1&outFields=*&outSR=4326&f=geojson")
+world_count_url <- paste0(world_layer_url, "/query?where=1%3D1&returnCountOnly=true&f=json")
+undp_file <- file.path(raw_dir, "HDR25_Composite_indices_complete_time_series.csv")
+metadata_file <- file.path(raw_dir, "HDR25_Composite_indices_metadata.xlsx")
+world_file <- file.path(raw_dir, "world-countries-generalized.geojson")
+world_count_file <- file.path(raw_dir, "world-countries-count.json")
+file.exists(c(undp_file, metadata_file, world_file, world_count_file))
 ```
 
-### 下载与格式验证
+### 下载
 
-保留原输入，临时文件通过 CSV 表头、XLSX 容器或 GeoJSON 结构验证后才复制到正式位置。UNDP 下载请求带普通 User-Agent 与官方 Referer；遇 403 可从官方下载页保存相同完整时间序列与元数据，不以单年 Table 5 代替。
+UNDP 链接如返回 403，可从[官方下载页](https://hdr.undp.org/data-center/documentation-and-downloads)保存相同的完整时间序列和元数据。
 
 ```{r download-inputs, eval=FALSE}
-options(timeout = max(1200, getOption("timeout"))) # 允许慢速网络下载较大边界
-undp_headers <- c( # 按正常官方网页下载请求提供信息，不包含密码或 token
-  "User-Agent" = "Mozilla/5.0", # 普通浏览器类型标识
-  "Referer" = "https://hdr.undp.org/data-center/documentation-and-downloads") # 表示从官方下载页进入
-valid_hdr_csv <- function(path) { # 下载后只检查 CSV 表头，不计算作业结果
-  header <- readr::read_lines(path, n_max = 1, locale = readr::locale(encoding = "Windows-1252")) # 只读首行表头
-  fields <- strsplit(header, ",", fixed = TRUE)[[1]] # 按逗号拆出表头字段
-  all(c("iso3", "country", "gii_2010", "gii_2019") %in% fields) # 需要四个指定字段
-}
-valid_world_json <- function(path) { # 验证文件真的是完整 GeoJSON，要素不为空
-  x <- jsonlite::read_json(path, simplifyVector = FALSE) # 读取文件结构，不执行地理分析
-  identical(x$type, "FeatureCollection") && length(x$features) > 0L && # 类型正确且有要素
-    !isTRUE(x$exceededTransferLimit) # 服务明确截断时不能继续
-}
-valid_count_json <- function(path) { # 验证只有计数的服务响应
-  x <- jsonlite::read_json(path, simplifyVector = TRUE) # 将简单JSON数值转成R向量
-  is.null(x$error) && length(x$count) == 1L && is.finite(x$count) && x$count > 0 # 计数有效且无服务错误
-}
-valid_xlsx <- function(path) { # xlsx 的容器是 ZIP，前两个字节应为 PK
-  identical(readBin(path, what = "raw", n = 2L), charToRaw("PK")) # 比较ZIP容器签名
-}
-download_once <- function(url, destination, validator, headers = NULL) {
-  if (file.exists(destination)) { # 已有输入不重写，也不悄悄换版本
-    stopifnot(isTRUE(validator(destination))) # 已有文件仍需通过格式检查
-    message("沿用已有输入：", basename(destination))
-    return(invisible(destination)) # 返回现有路径，跳过网络请求
-  }
-  temporary <- tempfile(pattern = "download-", tmpdir = dirname(destination)) # 先写临时文件
-  on.exit(unlink(temporary), add = TRUE) # 成功或失败后只清理本函数临时文件
-  status <- utils::download.file(url, temporary, method = "libcurl", mode = "wb", headers = headers) # 先下载到临时路径
-  stopifnot(status == 0L, file.exists(temporary), isTRUE(validator(temporary))) # 验证内容后才保留
-  stopifnot(file.copy(temporary, destination, overwrite = FALSE)) # 成功后复制成目标文件，不覆盖原件
-  invisible(destination) # 不把整个数据内容打印到 Console
-}
-download_once(undp_url, undp_file, valid_hdr_csv, headers = undp_headers) # 下载时间序列
-download_once(metadata_url, metadata_file, valid_xlsx, headers = undp_headers) # 下载数据字典
-download_once(world_count_url, world_count_file, valid_count_json) # 先保存边界计数
-download_once(world_url, world_file, valid_world_json) # 保存同一个服务的边界 GeoJSON
-file.info(c(undp_file, metadata_file, world_file))[, c("size", "mtime")] # 核对大小与本地保存时间
+options(timeout = 1200)
+download.file(undp_url, undp_file, mode = "wb")
+download.file(metadata_url, metadata_file, mode = "wb")
+download.file(world_count_url, world_count_file, mode = "wb")
+download.file(world_url, world_file, mode = "wb")
 ```
 
-### 输入完整性记录
-
-GeoJSON 要素数与同批服务计数一致，拒绝截断响应；清单保留 URL、字节数、本地时间和 MD5。
+### 本地文件
 
 ```{r verify-inputs}
-required_files <- c(undp_file, metadata_file, world_file, world_count_file) # 分析输入与变量定义
-stopifnot(all(file.exists(required_files))) # 缺少任一输入时先返回下载步骤
-first_line <- readr::read_lines(undp_file, n_max = 1, locale = readr::locale(encoding = "Windows-1252"))
-stopifnot(all(c("iso3", "country", "gii_2010", "gii_2019") %in% strsplit(first_line, ",", fixed = TRUE)[[1]]))
-world_document <- jsonlite::read_json(world_file, simplifyVector = FALSE) # 保留 GeoJSON 的结构列表
-expected_count <- jsonlite::read_json(world_count_file, simplifyVector = TRUE)$count # 读取同批计数
-stopifnot(identical(world_document$type, "FeatureCollection")) # 确认不是服务错误对象
-stopifnot(!isTRUE(world_document$exceededTransferLimit)) # 明确不接受被截断的响应
-stopifnot(length(world_document$features) == expected_count) # 边界要素数必须与计数一致
-input_manifest <- tibble( # 留下来源、文件和校验信息，便于以后重现
-  file = basename(required_files), url = c(undp_url, metadata_url, world_url, world_count_url), # 文件与来源一一对应
-  bytes = file.info(required_files)$size, # 字节数有助于发现空文件或不完整下载
-  local_saved_time = format(file.info(required_files)$mtime, tz = "Europe/London", usetz = TRUE), # 本地文件保存时间
-  md5 = unname(tools::md5sum(required_files))) # 内容摘要去掉多余的命名属性
-input_manifest # 查看实际下载得到的文件信息，不预填数值
+stopifnot(all(file.exists(c(undp_file, metadata_file, world_file, world_count_file))))
+expected_count <- jsonlite::read_json(world_count_file, simplifyVector = TRUE)$count
 ```
 
 ## 元数据与 GII 字段
@@ -163,10 +82,10 @@ input_manifest # 查看实际下载得到的文件信息，不预填数值
 `gii` 是指数，`gii_rank` 是排名。建议引文位于元数据的 `recommended_citation` 表；CSV 版本使用 Windows-1252。
 
 ```{r read-metadata}
-readxl::excel_sheets(metadata_file) # 列出元数据的工作表
-codebook <- readxl::read_excel(metadata_file, sheet = "codebook") # 读取变量说明表
-gis_columns(codebook, c("Full name", "Short name", "Time series")) # 检查说明表结构
-codebook %>% filter(stringr::str_detect(as.character(`Short name`), "^gii(_rank)?$")) # 定位GII与排名
+readxl::excel_sheets(metadata_file)
+codebook <- readxl::read_excel(metadata_file, sheet = "codebook")
+stopifnot(all(c("Full name", "Short name", "Time series") %in% names(codebook)))
+codebook %>% filter(stringr::str_detect(as.character(`Short name`), "^gii(_rank)?$"))
 ```
 
 ### 完整时间序列
@@ -174,29 +93,29 @@ codebook %>% filter(stringr::str_detect(as.character(`Short name`), "^gii(_rank)
 所有字段先按文字读取，随后显式转换两年指数；缺失标记不包含数值 0。
 
 ```{r read-undp}
-hdr_raw <- readr::read_csv( # 读完整时间序列，先将全部字段作为文字保留
-  undp_file, locale = readr::locale(encoding = "Windows-1252"), # 指定核验过的原文件编码
-  col_types = readr::cols(.default = readr::col_character()), # 暂不让readr自动猜列类型
-  na = c("", "NA", "N/A", "n/a", ".."), trim_ws = TRUE) # 识别缺失标识并去外围空格
-names(hdr_raw) <- tolower(gsub("[^A-Za-z0-9]+", "_", names(hdr_raw))) # 统一字段名
-gis_columns(hdr_raw, c("iso3", "country", "gii_2010", "gii_2019")) # 只接受所需列存在的版本
-readr::problems(hdr_raw) # 检查读取问题，不因 show_col_types 消息而忽视错误
+hdr_raw <- readr::read_csv(
+  undp_file, locale = readr::locale(encoding = "Windows-1252"), # 保留源文件编码
+  col_types = readr::cols(.default = readr::col_character()),
+  na = c("", "NA", "N/A", "n/a", ".."), trim_ws = TRUE)
+names(hdr_raw) <- tolower(gsub("[^A-Za-z0-9]+", "_", names(hdr_raw)))
+stopifnot(all(c("iso3", "country", "gii_2010", "gii_2019") %in% names(hdr_raw)))
+readr::problems(hdr_raw)
 dim(hdr_raw)
-hdr_raw %>% dplyr::select(iso3, country, gii_2010, gii_2019) %>% head(10) # 先看必要四列
+hdr_raw %>% dplyr::select(iso3, country, gii_2010, gii_2019) %>% head(10)
 ```
 
 ## 国家／地区记录
 
-以代码字典排除世界、区域和发展水平汇总行，并保留排除清单。字典分类沿用数据来源，不作为主权认定；真正国家／地区的异常代码需显式核对，不任意删除。
+按 ISO3 代码排除世界和区域等汇总行，并保留排除清单。
 
 ```{r country-rows}
-hdr_codes <- hdr_raw %>% mutate(iso3 = stringr::str_to_upper(stringr::str_trim(iso3))) # 统一代码
-valid_iso3 <- unique(na.omit(countrycode::codelist$iso3c)) # 从 countrycode 的代码表取得合法 ISO3
-hdr_codes <- hdr_codes %>% mutate(is_country = !is.na(iso3) & iso3 %in% valid_iso3) # 明确国家/地区资格
-excluded_aggregates <- hdr_codes %>% filter(!is_country) %>% dplyr::select(iso3, country) # 保留排除清单
-excluded_aggregates # 逐项检查排除的是汇总/非 ISO 行，不能静默丢弃
-gii_text <- hdr_codes %>% filter(is_country) %>% dplyr::select(iso3, undp_name = country, gii_2010, gii_2019) # 仅留国家及两年指数
-gis_unique(gii_text, "iso3") # 同一个国家/地区只能有一行；发现重复时停止，不用任意去重
+hdr_codes <- hdr_raw %>% mutate(iso3 = stringr::str_to_upper(stringr::str_trim(iso3)))
+valid_iso3 <- unique(na.omit(countrycode::codelist$iso3c))
+hdr_codes <- hdr_codes %>% mutate(is_country = !is.na(iso3) & iso3 %in% valid_iso3)
+excluded_aggregates <- hdr_codes %>% filter(!is_country) %>% dplyr::select(iso3, country)
+excluded_aggregates
+gii_text <- hdr_codes %>% filter(is_country) %>% dplyr::select(iso3, undp_name = country, gii_2010, gii_2019)
+stopifnot(!anyNA(gii_text$iso3), !anyDuplicated(gii_text$iso3))
 ```
 
 ### 数值与范围
@@ -204,17 +123,17 @@ gis_unique(gii_text, "iso3") # 同一个国家/地区只能有一行；发现重
 两年指数逐列转换，非缺失字符串转换失败时停止；有效值限定 0–1，代码保持文字。
 
 ```{r numeric-gii}
-gii <- gii_text %>% mutate( # 只转换两个指数列，地区代码仍是文字
-  gii_2010 = readr::parse_double(gii_2010, na = c("", "NA", "..")), # 2010字符串转小数
-  gii_2019 = readr::parse_double(gii_2019, na = c("", "NA", ".."))) # 同法转换2019，保留缺失
-conversion_failures <- gii_text %>% filter( # 检查非缺失原字符串是否被转换成 NA
+gii <- gii_text %>% mutate(
+  gii_2010 = readr::parse_double(gii_2010, na = c("", "NA", "..")),
+  gii_2019 = readr::parse_double(gii_2019, na = c("", "NA", "..")))
+conversion_failures <- gii_text %>% filter(
   (!is.na(gii_2010) & is.na(gii$gii_2010)) | (!is.na(gii_2019) & is.na(gii$gii_2019)))
-conversion_failures # 非空时先查字符串与数据字典，不进行下游计算
-stopifnot(nrow(conversion_failures) == 0L) # 不把无法解析的文字悄悄当缺失
-stopifnot(all(is.na(gii$gii_2010) | dplyr::between(gii$gii_2010, 0, 1))) # 检查2010指数范围
-stopifnot(all(is.na(gii$gii_2019) | dplyr::between(gii$gii_2019, 0, 1))) # 检查2019指数范围
-gis_unique(gii, "iso3") # 转换数值后再确认键未改变
-summary(gii[c("gii_2010", "gii_2019")]) # 查看分布、范围及缺失数
+conversion_failures
+stopifnot(nrow(conversion_failures) == 0L)
+stopifnot(all(is.na(gii$gii_2010) | dplyr::between(gii$gii_2010, 0, 1)))
+stopifnot(all(is.na(gii$gii_2019) | dplyr::between(gii$gii_2019, 0, 1)))
+stopifnot(!anyNA(gii$iso3), !anyDuplicated(gii$iso3))
+summary(gii[c("gii_2010", "gii_2019")])
 ```
 
 ## 世界边界与 ISO 转换
@@ -222,57 +141,57 @@ summary(gii[c("gii_2010", "gii_2019")]) # 查看分布、范围及缺失数
 Esri `ISO` 为 ISO2，转换到 UNDP 的 ISO3。`COUNTRYAFF` 和 `AFF_ISO` 是所属国字段，不用于把所属国 GII 复制到领土。未识别代码单独保留。
 
 ```{r read-world}
-world_raw <- sf::st_read(world_file, quiet = TRUE) # 读取已验证的 GeoJSON
-names(world_raw) # 看真实字段名，不猜连接键
-gis_columns(world_raw, c("FID", "COUNTRY", "ISO", "COUNTRYAFF", "AFF_ISO")) # 检查该图层结构
-stopifnot(nrow(world_raw) == expected_count) # 与同批服务计数再核对一次
-stopifnot(!is.na(sf::st_crs(world_raw))) # 缺 CRS 时不能凭外观补标签
-world_raw <- sf::st_transform(world_raw, 4326) # 统一为请求所定义的 WGS84，经纬度单位为度
-world_raw <- sf::st_make_valid(world_raw) # 修复几何结构，原始文件仍保留不改
-world_raw <- world_raw %>% mutate( # Esri 的 ISO 是两字符代码，UNDP 使用三字符代码
-  iso2 = stringr::str_to_upper(stringr::str_trim(as.character(ISO))), # 先清理边界两位代码
-  iso3 = countrycode::countrycode(iso2, origin = "iso2c", destination = "iso3c", warn = FALSE)) # 用字典转三位代码
+world_raw <- sf::st_read(world_file, quiet = TRUE)
+names(world_raw)
+stopifnot(all(c("FID", "COUNTRY", "ISO", "COUNTRYAFF", "AFF_ISO") %in% names(world_raw)))
+stopifnot(nrow(world_raw) == expected_count)
+stopifnot(!is.na(sf::st_crs(world_raw)))
+world_raw <- sf::st_transform(world_raw, 4326)
+world_raw <- sf::st_make_valid(world_raw)
+world_raw <- world_raw %>% mutate(
+  iso2 = stringr::str_to_upper(stringr::str_trim(as.character(ISO))),
+  iso3 = countrycode::countrycode(iso2, origin = "iso2c", destination = "iso3c", warn = FALSE))
 unmapped_boundary_codes <- world_raw %>% filter(is.na(iso3)) %>% sf::st_drop_geometry() %>%
-  dplyr::select(FID, COUNTRY, ISO, COUNTRYAFF, AFF_ISO) # 保留无法转换的边界清单
-unmapped_boundary_codes # 无法映射的地区暂时保留，后面以灰色显示
+  dplyr::select(FID, COUNTRY, ISO, COUNTRYAFF, AFF_ISO)
+unmapped_boundary_codes
 ```
 
 ### 多部件几何与唯一键
 
-同 ISO3 的地理部分通过 sf union 合为一行，保留来源名称与部分数。未知代码各自使用临时键，不把所有 NA 合成同一个国家。
+同 ISO3 的地理部分通过 sf union 合为一行，保留来源名称与部分数。未知代码分别保留独立连接键。
 
 ```{r prepare-world-keys}
 boundary_parts <- world_raw %>% sf::st_drop_geometry() %>% filter(!is.na(iso3)) %>%
-  count(iso3, name = "parts") %>% filter(parts > 1L) # 先公开哪些代码有多个部分
-boundary_parts # 查看需要合并的多部件国家/地区
+  count(iso3, name = "parts") %>% filter(parts > 1L)
+boundary_parts
 world_known <- world_raw %>% filter(!is.na(iso3)) %>% group_by(iso3) %>%
   summarise(world_name = paste(sort(unique(COUNTRY)), collapse = " / "),
             source_parts = n(), do_union = TRUE, .groups = "drop") %>%
-  mutate(join_key = iso3) # sf summarise 对同一代码的几何求并集，保留一个连接键
-world_unknown <- world_raw %>% filter(is.na(iso3)) %>% transmute( # 不把全部未知代码合成一个国家
+  mutate(join_key = iso3)
+world_unknown <- world_raw %>% filter(is.na(iso3)) %>% transmute(
   iso3 = NA_character_, world_name = COUNTRY, source_parts = 1L,
-  join_key = paste0("unmatched_boundary_", FID)) # 每个未知边界使用独立临时键
-world <- bind_rows(world_known, world_unknown) # 合并已识别和未识别边界
-gis_unique(world, "join_key") # 所有地图记录的连接键必须唯一，且没有 NA
-stopifnot(all(sf::st_is_valid(world))) # 连接前再检查几何有效性
+  join_key = paste0("unmatched_boundary_", FID))
+world <- bind_rows(world_known, world_unknown)
+stopifnot(!anyNA(world$join_key), !anyDuplicated(world$join_key))
+stopifnot(all(sf::st_is_valid(world)))
 ```
 
 ## 一对一左连接
 
-双向列出未匹配记录，保留所有边界。覆盖差异与缺失不通过猜代码、复制所属国数值或任意删区消除。
+按 ISO3 一对一左连接，保留全部边界并列出双向未匹配记录。
 
 ```{r check-and-join}
-world_table <- sf::st_drop_geometry(world) # anti_join 只比较普通属性，不进行空间叠置
+world_table <- sf::st_drop_geometry(world)
 no_gii_for_boundary <- dplyr::anti_join(world_table, gii, by = c("join_key" = "iso3"))
 no_boundary_for_gii <- dplyr::anti_join(gii, world_table, by = c("iso3" = "join_key"))
-no_gii_for_boundary %>% dplyr::select(world_name, iso3, join_key) # 哪些边界没有统计行
-no_boundary_for_gii %>% dplyr::select(iso3, undp_name) # 哪些统计国家/地区没有边界
-world_gii <- dplyr::left_join( # 保留全部地图范围，而不是悄悄丢掉没有GII的边界
-  world, gii, by = c("join_key" = "iso3"), relationship = "one-to-one") # 明确双方键与一对一关系
-stopifnot(nrow(world_gii) == nrow(world)) # 连接不能意外增加或减少地图行数
-gis_unique(world_gii, "join_key") # 确认一国/地区一行的结构仍成立
+no_gii_for_boundary %>% dplyr::select(world_name, iso3, join_key)
+no_boundary_for_gii %>% dplyr::select(iso3, undp_name)
+world_gii <- dplyr::left_join(
+  world, gii, by = c("join_key" = "iso3"), relationship = "one-to-one")
+stopifnot(nrow(world_gii) == nrow(world))
+stopifnot(!anyNA(world_gii$join_key), !anyDuplicated(world_gii$join_key))
 world_gii %>% sf::st_drop_geometry() %>%
-  dplyr::select(world_name, undp_name, iso3, gii_2010, gii_2019) %>% head(10) # 抽查字段
+  dplyr::select(world_name, undp_name, iso3, gii_2010, gii_2019) %>% head(10)
 ```
 
 ## 2010–2019 变化
@@ -280,18 +199,18 @@ world_gii %>% sf::st_drop_geometry() %>%
 计算 `gii_change = gii_2019 - gii_2010`；完整配对和缺失分别记录，NA 不归入 No change。
 
 ```{r calculate-change}
-world_gii <- world_gii %>% mutate( # 所有结果都来自刚才按代码连接的两列
-  gii_change = gii_2019 - gii_2010, # 正数上升，负数下降；NA自然继续为NA
-  change_group = case_when( # 用文字分类帮助解释，不改变连续差值
+world_gii <- world_gii %>% mutate(
+  gii_change = gii_2019 - gii_2010,
+  change_group = case_when(
     is.na(gii_change) ~ "Missing one/both years",
     gii_change < 0 ~ "GII decreased",
     gii_change > 0 ~ "GII increased",
     TRUE ~ "No change"))
 coverage <- world_gii %>% sf::st_drop_geometry() %>% summarise(
   map_rows = n(), complete_pairs = sum(!is.na(gii_change)), missing_pairs = sum(is.na(gii_change)))
-coverage # 统计的是地图国家/地区记录数，不是人口数
-world_gii %>% sf::st_drop_geometry() %>% count(change_group) # 查看每类实际有多少地区
-stopifnot(coverage$complete_pairs > 0L) # 两年都有效的记录必须至少有一条
+coverage
+world_gii %>% sf::st_drop_geometry() %>% count(change_group)
+stopifnot(coverage$complete_pairs > 0L)
 stopifnot(all(is.na(world_gii$gii_change) | dplyr::between(world_gii$gii_change, -1, 1)))
 ```
 
@@ -300,20 +219,20 @@ stopifnot(all(is.na(world_gii$gii_change) | dplyr::between(world_gii$gii_change,
 负差值蓝色、正差值红色，色标以零对称；缺失为灰色。颜色表示指数变化，不表示人口数量。
 
 ```{r map-change}
-tmap::tmap_mode("plot") # 先用静态模式，便于报告与PNG一致
-limit <- max(abs(world_gii$gii_change), na.rm = TRUE) # 找两侧差值的共同绝对范围
-if (!is.finite(limit) || limit == 0) limit <- 0.01 # 全部恰好为0时仍能建立图例
+tmap::tmap_mode("plot")
+limit <- max(abs(world_gii$gii_change), na.rm = TRUE)
+if (!is.finite(limit) || limit == 0) limit <- 0.01
 gii_change_map <- tmap::tm_shape(world_gii) +
-  tmap::tm_polygons( # 图中填色用连续差值，不用GII水平或排名
+  tmap::tm_polygons(
     fill = "gii_change", col = "grey40", lwd = 0.25,
     fill.scale = tmap::tm_scale_continuous(
-      limits = c(-limit, limit), midpoint = 0, # 两侧同范围，0为中心
-      values = c("#2166ac", "#f7f7f7", "#b2182b"), # 负值蓝、0近白、正值红
-      value.na = "grey80", label.na = "Missing 2010 or 2019 / unmatched"), # 灰色单独解释缺失
-    fill.legend = tmap::tm_legend(title = "GII 2019 − GII 2010")) + # 图例明确相减方向
-  tmap::tm_title("Change in Gender Inequality Index, 2010–2019") + # 为图添加时间与指标标题
-  tmap::tm_credits("UNDP HDR 2025; World Countries Generalized: Esri and sources") # 写数据来源
-gii_change_map # 显示地图；先核对图例方向，再写个人观察
+      limits = c(-limit, limit), midpoint = 0,
+      values = c("#2166ac", "#f7f7f7", "#b2182b"),
+      value.na = "grey80", label.na = "Missing 2010 or 2019 / unmatched"),
+    fill.legend = tmap::tm_legend(title = "GII 2019 − GII 2010")) +
+  tmap::tm_title("Change in Gender Inequality Index, 2010–2019") +
+  tmap::tm_credits("UNDP HDR 2025; World Countries Generalized: Esri and sources")
+gii_change_map
 ```
 
 ### 表格与分布核对
@@ -323,91 +242,33 @@ gii_change_map # 显示地图；先核对图例方向，再写个人观察
 ```{r inspect-results}
 matched_complete <- world_gii %>% sf::st_drop_geometry() %>% filter(!is.na(gii_change))
 matched_complete %>% dplyr::select(iso3, world_name, gii_2010, gii_2019, gii_change) %>%
-  arrange(gii_change) %>% slice_head(n = 10) # GII 差值升序核对
+  arrange(gii_change) %>% slice_head(n = 10)
 matched_complete %>% dplyr::select(iso3, world_name, gii_2010, gii_2019, gii_change) %>%
-  arrange(desc(gii_change)) %>% slice_head(n = 10) # 查看相反方向，不预先声称哪些国家会出现
+  arrange(desc(gii_change)) %>% slice_head(n = 10)
 summary(matched_complete$gii_change)
-hist(matched_complete$gii_change, breaks = "FD", # 用数据决定分箱，而不是预填结果
+hist(matched_complete$gii_change, breaks = "FD",
      main = "Country-level GII change, 2010–2019", xlab = "GII 2019 minus GII 2010")
-abline(v = 0, lty = 2, col = "grey30") # 在直方图上画出0参考线
+abline(v = 0, lty = 2, col = "grey30")
 ```
 
 ## 可选导出
 
-使用真实时间戳和同名保护，CSV 保存属性、GPKG 保存空间结果、PNG 保存样式。tmap 样式不随普通 GPKG 写入；PNG 使用 ragg。
+CSV 保存属性、GPKG 保存空间结果、PNG 保存地图；文件名附运行时间。
 
 ```{r export-results, eval=FALSE}
-run_tag <- format(Sys.time(), "%Y%m%d-%H%M%S", tz = "Europe/London") # 记录真实本次时间
-output_dir <- file.path(root, "week04", "outputs") # 数据结果默认留在本地
-figure_dir <- file.path(root, "week04", "figures") # 经过检查的派生图片可纳入仓库
-dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) # 需要时建输出目录
-dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE) # 需要时建图片目录
+run_tag <- format(Sys.time(), "%Y%m%d-%H%M%S", tz = "Europe/London")
+output_dir <- file.path(root, "week04", "outputs")
+figure_dir <- file.path(root, "week04", "figures")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
 csv_target <- file.path(output_dir, paste0("gii-change-2010-2019-", run_tag, ".csv"))
 gpkg_target <- file.path(output_dir, paste0("gii-change-2010-2019-", run_tag, ".gpkg"))
 png_target <- file.path(figure_dir, paste0("gii-change-2010-2019-", run_tag, ".png"))
-manifest_target <- file.path(output_dir, paste0("input-manifest-", run_tag, ".csv"))
-stopifnot(!any(file.exists(c(csv_target, gpkg_target, png_target, manifest_target)))) # 禁止覆盖
-readr::write_csv(sf::st_drop_geometry(world_gii), csv_target, na = "NA") # 保存实际连接与差值表
-sf::st_write(world_gii, gpkg_target, layer = "gii_change", quiet = TRUE) # 保存空间结果
-tmap::tmap_save(gii_change_map, png_target, device = ragg::agg_png, # 避开这台Mac缺失的Cairo/X11
+stopifnot(!any(file.exists(c(csv_target, gpkg_target, png_target))))
+readr::write_csv(sf::st_drop_geometry(world_gii), csv_target, na = "NA")
+sf::st_write(world_gii, gpkg_target, layer = "gii_change", quiet = TRUE)
+tmap::tmap_save(gii_change_map, png_target, device = ragg::agg_png,
                 width = 12, height = 7, units = "in", dpi = 200)
-readr::write_csv(input_manifest, manifest_target) # 保存本次输入摘要
-stopifnot(all(file.exists(c(csv_target, gpkg_target, png_target, manifest_target)))) # 真正检查文件存在
-c(csv_target, gpkg_target, png_target, manifest_target) # 打印文件位置，便于打开查看
+stopifnot(all(file.exists(c(csv_target, gpkg_target, png_target))))
+c(csv_target, gpkg_target, png_target)
 ```
-
-## HTML 报告
-
-从新 R 会话运行此独立渲染块，`execute=TRUE` 重建普通分析；下载、安装和导出不会自动运行。生成的时间戳 HTML 保留旧报告。
-
-```{r render-report, eval=FALSE}
-report_helpers <- c("tutorial-tools.R", "../tutorial-tools.R") # Restart R后也能从支持的目录找到工具
-report_helper <- report_helpers[file.exists(report_helpers)] # 仅保留真实工具文件
-stopifnot(length(report_helper) >= 1L) # 找不到时先打开课程Rproj
-source(report_helper[1]) # 恢复路径检查函数，不依赖上次会话对象
-report_root <- gis_root() # 从Rproj确定课程根目录
-report_lib <- file.path(report_root, ".local-review", "R-library") # 定位本课程本地包库
-if (dir.exists(report_lib)) .libPaths(c(report_lib, .libPaths())) # 让新会话识别本地rmarkdown等包
-gis_packages("rmarkdown") # 缺包时先执行安装块
-report_input <- file.path(report_root, "week04", "homework.Rmd") # 明确只渲染第四周，不误选其他周同名文件
-report_input <- normalizePath(report_input, mustWork = TRUE) # 校验该文件确实存在
-report_name <- paste0("homework-report-", format(Sys.time(), "%Y%m%d-%H%M%S"), ".html")
-report_target <- file.path(dirname(report_input), report_name) # HTML放本周目录，便于审阅后分享
-stopifnot(!file.exists(report_target)) # 不覆盖已经保存的报告
-rmarkdown::render(input = report_input, output_file = report_name, # 从文档中的输入重新计算
-                  output_dir = dirname(report_input), params = list(execute = TRUE), # 同目录输出，并明确开启重算
-                  envir = new.env(parent = globalenv()), clean = TRUE) # 使用新的报告对象环境，清理中间文件
-file.exists(report_target) # 应检查真实报告存在，再双击打开
-```
-
-## Git 检查与分享范围
-
-以下为 Terminal 中的只读检查，路径相对课程项目；源代码、核对后的报告和许可允许的派生图片可单独审阅。原始数据、包库、凭据、备份和无关课程文件不加入发布。
-
-```bash
-git rev-parse --show-toplevel
-git branch --show-current
-git remote -v
-git status --short -- .
-git diff -- week04/homework.Rmd
-```
-
-## 发布与仓库登记
-
-发布范围为已核对的 Rmd、真实生成的 HTML、许可允许的派生图和必要来源文件；提交描述对应实际修改。Commit、Push、网页可访问与链接表登记分别核对，不互相代替。仓库可见性更改前审阅整库内容。
-
-教程的 homework links spreadsheet 及教师通知列于来源。登记使用仓库 URL，不使用本地路径；截止时间以实际课程通知为准。Esri 原始边界的使用条款不由课程文字许可替代。
-
-## 来源与改编
-
-- [官方第四周 Homework](https://andrewmaclachlan.github.io/CASA0005repo/git-github-and-rmarkdown.html#homework-3)
-- [UNDP 指标说明](https://hdr.undp.org/data-center/thematic-composite-indices/gender-inequality-index)
-- [UNDP 官方下载页](https://hdr.undp.org/data-center/documentation-and-downloads)
-- [HDR25 完整时间序列 CSV](https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_complete_time_series.csv)
-- [HDR25 字段元数据](https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_metadata.xlsx)
-- [老师指定的 Esri World Countries Generalized](https://hub.arcgis.com/datasets/2b93b06dc0dc4e809d3c8db5cb96ba69_0/explore)
-- [使用条款](https://goto.arcgis.com/termsofuse/viewsummary)
-- [homework links spreadsheet](https://docs.google.com/spreadsheets/d/1mHrA09wGPqq7c8J_EJeOqeKupOea9AKysE9NdbpsyNs/edit)
-- [2026-10-30 通知](https://moodle.ucl.ac.uk/mod/forum/discuss.php?d=1333396#p2384944)
-
-中文整理与代码适配使用 AI 辅助；原作者、许可及改编范围见[来源与改编范围](../来源与改编范围.md)。

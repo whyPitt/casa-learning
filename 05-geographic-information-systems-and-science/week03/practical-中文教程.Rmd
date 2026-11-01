@@ -8,47 +8,24 @@ editor_options:
   chunk_output_type: console
 ---
 
-按[官方第 3 章](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html)顺序整理CRS、栅格提取与描述统计。打开课程 `casa0005.Rproj`，代码按顺序运行；Knit 从头计算普通分析块；安装、导出与可选联网分支单独执行。
-
-来源：MacLachlan、Dennett、Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与适配经 AI 辅助，见[改编范围](../来源与改编范围.md)；源版本 `0b19a3339034e3bd3de1e8246559d453301f07eb`。
+使用 GADM Australia 和 WorldClim 历史月均温，练习投影转换、城市提取、栅格裁剪与描述统计。
 
 ```{r setup, include=FALSE, eval=TRUE}
-knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
-knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, dev = "ragg_png", dpi = 120)
 ```
 
 ## 数据与包
 
-GADM Australia 存为 `data/raw/week03/gadm41_AUS.gpkg`；WorldClim v2.1 的 12 个 tavg、5 角分 TIFF 存入 `data/raw/week03/worldclim/`。基准期 1970–2000，单位 °C，`5m` 为角分。来源与校验见 [数据记录](../data/SOURCES-week03.txt)。本机包安装至被忽略的 `.local-review/R-library`；仅补缺包，binary 安装适配 Mac。
+GADM Australia 存为 `data/raw/week03/gadm41_AUS.gpkg`；WorldClim v2.1 的 12 个 tavg、5 角分 TIFF 存入 `data/raw/week03/worldclim/`。基准期 1970–2000，单位 °C，`5m` 为角分。
 
 ```{r packages, eval=FALSE}
-helper <- c("tutorial-tools.R", "../tutorial-tools.R")
-source(helper[file.exists(helper)][1])
-root <- gis_root()
-local_lib <- file.path(root, ".local-review", "R-library")
-dir.create(local_lib, recursive = TRUE, showWarnings = FALSE)
-.libPaths(c(local_lib, .libPaths()))
-required_packages <- c("sf", "terra", "tidyverse", "fs", "tidyterra", "plotly")
-missing_packages <- required_packages[
-  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
-if (length(missing_packages)) {
-  options(timeout = max(1200, getOption("timeout")))
-  install.packages(missing_packages, lib = local_lib,
-                   repos = "https://cloud.r-project.org", type = "binary")
-}
+install.packages(c("here", "sf", "terra", "tidyverse", "fs", "tidyterra", "plotly"))
 ```
 
 ## 加载工具
 
-新会话先加载工具，恢复本地包库路径。
-
 ```{r tools}
-helper <- c("tutorial-tools.R", "../tutorial-tools.R")
-source(helper[file.exists(helper)][1])
-root <- gis_root()
-local_lib <- file.path(root, ".local-review", "R-library")
-if (dir.exists(local_lib)) .libPaths(c(local_lib, .libPaths()))
-gis_packages(c("sf", "terra", "tidyverse", "fs"))
+root <- here::here()
 library(sf)
 library(terra)
 library(tidyverse)
@@ -59,7 +36,7 @@ library(tidyverse)
 读取以 `_0` 结尾的国家层。4326 为经纬度，3112 为澳大利亚米制 Lambert 投影。
 
 ```{r vector-crs}
-aus_file <- gis_file("data/raw/week03/gadm41_AUS.gpkg", "^gadm41_AUS\\.gpkg$")
+aus_file <- file.path(root, "data/raw/week03/gadm41_AUS.gpkg")
 layers <- st_layers(aus_file)
 layers
 aus_layer <- layers$name[grepl("_0$", layers$name)]
@@ -91,7 +68,7 @@ AusoutlineSF <- st_as_sf(AusoutlineSP)
 检查层、范围、分辨率和 CRS。
 
 ```{r january}
-jan_file <- gis_file("data/raw/week03/worldclim/wc2.1_5m_tavg_01.tif", "^wc2\\.1_5m_tavg_01\\.tif$")
+jan_file <- file.path(root, "data/raw/week03/worldclim/wc2.1_5m_tavg_01.tif")
 jan <- terra::rast(jan_file)
 jan
 terra::res(jan)
@@ -209,7 +186,6 @@ data_complete_cases %>% summarise(meanwholeyear = mean(Temp))
 使用 tidyterra 与 plotly，比较一月和六月的格网温度分布。
 
 ```{r optional-interactive-and-raster-ggplot, eval=FALSE}
-gis_packages(c("plotly", "tidyterra"))
 ggplot() + tidyterra::geom_spatraster(data = exactAus, aes(fill = Mar))
 jan_values <- filter(data_complete_cases, Month == "Jan")$Temp
 jun_values <- filter(data_complete_cases, Month == "Jun")$Temp
@@ -221,12 +197,11 @@ plotly::plot_ly(alpha = 0.6) %>%
 
 ## Homework 与阅读
 
-未来 tmax 的 SSP126/SSP585 比较见 [homework.Rmd](homework.Rmd)，与课堂历史 tavg 分开。概念见 [lecture-notes.Rmd](lecture-notes.Rmd)，课堂结果见 [运行记录](../README.md)。阅读：Navarro 描述统计第 5 章、Geocomputation with R 重投影章节。
+未来 tmax 的 SSP126/SSP585 比较见 [homework.Rmd](homework.Rmd)，与课堂历史 tavg 分开。概念见 [lecture-notes.Rmd](lecture-notes.Rmd)。阅读：Navarro 描述统计第 5 章、Geocomputation with R 重投影章节。
 
 ## 资料链接
 
 - [官方第 3 章](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html)
-- [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 - [GADM](https://gadm.org/download_country.html)
 - [WorldClim v2.1](https://www.worldclim.org/data/worldclim21.html)
 - [未来数据](https://www.worldclim.org/data/cmip6/cmip6climate.html)

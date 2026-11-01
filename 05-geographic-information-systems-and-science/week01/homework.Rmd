@@ -10,8 +10,6 @@ date: "2026-10-08"
 
 2018 年新西兰 Territorial Authority 的受薪雇员人数地图。属性取自普查 `individual-part-3a` 工作簿的 `Territorial authority` 表，连接到 2018 generalised 行政区边界；不使用 SA1 层级。
 
-计算流程：Excel 字段核对 → 排除汇总记录 → 检查地区代码 → 一对一左连接 → 专题地图。项目入口为课程 `casa0005.Rproj`。普通代码块按顺序构建对象；导出和指定路径渲染保持 `eval=FALSE`。
-
 ## 结果摘要
 
 连接后保留 67 个 Territorial Authorities，地区键唯一，就业人数无缺失。Auckland 的受薪雇员人数为 691,473，Christchurch City 为 171,777。这里比较人数，不是就业率。
@@ -19,19 +17,11 @@ date: "2026-10-08"
 ## 环境
 
 ```{r setup, include=FALSE, eval=TRUE}
-knitr::opts_chunk$set(eval = TRUE, echo = TRUE, fig.width = 8, fig.height = 8)
-knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, fig.width = 8, fig.height = 8, dev = "ragg_png", dpi = 120)
 ```
 
 ```{r packages-and-root}
-helper <- c("tutorial-tools.R", "../tutorial-tools.R")
-helper <- helper[file.exists(helper)]
-if (!length(helper)) {
-  stop("请先打开课程 casa0005.Rproj，再打开 week01/homework.Rmd。", call. = FALSE)
-}
-source(helper[[1]])
-root <- gis_root()
-gis_packages(c("tidyverse", "readxl", "sf", "tmap"))
+root <- here::here()
 library(tidyverse)
 library(readxl)
 library(sf)
@@ -40,11 +30,8 @@ library(tmap)
 
 ### 依赖安装（缺包时）
 
-分析使用 tidyverse、readxl、sf、tmap；安装块保留为独立操作。
-
 ```{r install-if-needed, eval=FALSE}
-options(timeout = 1200)
-install.packages("readxl", repos = "https://cloud.r-project.org")
+install.packages(c("here", "tidyverse", "readxl", "sf", "tmap", "ragg"))
 ```
 
 ## 普查工作簿与字段
@@ -73,7 +60,7 @@ read_excel(
 
 ### 读取就业人数
 
-保留代码、名称和 2018 人数三列。地区代码作为文字保留前导零；对象名 `mycsv` 不表示已经写出 CSV。
+保留地区代码、名称和 2018 年人数；代码按文字读取，保留前导零。
 
 ```{r read-census}
 census_raw <- read_excel(
@@ -84,7 +71,7 @@ census_raw <- read_excel(
   .name_repair = "minimal"
 )
 
-mycsv <- census_raw[, c(1, 2, 38)]
+mycsv <- census_raw[, c(1, 2, 38)] # 第 38 列为 2018 Paid employee
 names(mycsv) <- c("TA_CODE", "CENSUS_NAME", "PAID_EMP_2018")
 
 head(mycsv, n = 10)
@@ -148,8 +135,8 @@ anyDuplicated(shape$TA_CODE)
 ```
 
 ```{r join-data}
-gis_unique(shape, "TA_CODE")
-gis_unique(mycsv, "TA_CODE")
+stopifnot(!anyNA(shape$TA_CODE), !anyDuplicated(shape$TA_CODE))
+stopifnot(!anyNA(mycsv$TA_CODE), !anyDuplicated(mycsv$TA_CODE))
 shape2 <- dplyr::left_join(
   shape,
   mycsv,
@@ -204,7 +191,7 @@ mycsv %>%
 
 ## 可选导出
 
-CSV 保存属性，GPKG 保存几何与属性，PNG 保存制图外观。以下导出不随 Knit 自动执行；固定目标文件名会重复使用，GPKG 的 `delete_layer=TRUE` 会替换指定结果图层。原始数据路径不用于导出。
+CSV 保存属性，GPKG 保存空间数据，PNG 保存地图。
 
 ```{r create-output-folders, eval=FALSE}
 processed_dir <- file.path(root, "week01/data/processed")
@@ -256,7 +243,7 @@ shape2 %>%
 
 ### PNG
 
-使用 `ragg::agg_png`，避免本机默认 Cairo/X11 依赖。8×8 英寸、300 dpi 对应 2400×2400 像素。
+图片大小为 8×8 英寸、300 dpi（2400×2400 像素）。
 
 ```{r export-map-image, eval=FALSE}
 png_file <- file.path(figures_dir, "nz_paid_employee_2018.png")
@@ -276,28 +263,6 @@ file.exists(gpkg_file)
 file.exists(png_file)
 ```
 
-## HTML 报告
-
-渲染读取文档内的完整流程，报告目录为 `week01/outputs/`。Rmd 是源文档，HTML 是阅读版；该渲染块独立执行。
-
-```{r render-report-option, eval=FALSE}
-rmarkdown::render(
-  input = file.path(root, "week01/homework.Rmd"),
-  output_dir = file.path(root, "week01/outputs")
-)
-```
-
-## 方法范围
-
-基本图对应官方连接与制图目标；CSV、GPKG、PNG、HTML 是保存形式，不据此新增字数、期限或提交格式。公开作业没有独立指定新西兰 QGIS 流程。原始 Excel、边界及各配套文件保持不变。
+## 数据说明
 
 字段依据为 `Territorial authority!AL9:AL10`、`A11:B79`、`AL11:AL79`；变量质量、固定随机舍入和就业状态时间见 `Footnotes and symbols!B21`、`B27`、`B35`。
-
-## 来源与改编
-
-- [本周中文教程](practical-中文教程.Rmd)
-- [公开教程 1.2 Homework](https://andrewmaclachlan.github.io/CASA0005repo/geographic-information.html#homework)
-- [CASA0005 26/27 Moodle 的 Assessment](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=3#tabs-tree-start)
-- [公开教程第一课](https://andrewmaclachlan.github.io/CASA0005repo/geographic-information.html)
-
-中文整理与代码适配使用 AI 辅助；原作者、许可及改编范围见[来源与改编范围](../来源与改编范围.md)。

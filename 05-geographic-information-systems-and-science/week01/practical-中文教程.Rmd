@@ -8,13 +8,10 @@ editor_options:
   chunk_output_type: console
 ---
 
-按[官方第 1 章](https://andrewmaclachlan.github.io/CASA0005repo/geographic-information.html)顺序整理地理信息、读取、连接与输出。打开课程 `casa0005.Rproj`，代码按顺序运行；Knit 从头计算普通分析块；安装、导出与可选联网分支单独执行。
-
-来源：MacLachlan、Dennett、Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与适配经 AI 辅助，见[改编范围](../来源与改编范围.md)；源版本 `0b19a3339034e3bd3de1e8246559d453301f07eb`。
+使用伦敦行政区边界与 fly-tipping 属性表，按地区代码连接并绘制专题地图。连接后保留 33 个 borough。
 
 ```{r setup, include=FALSE, eval=TRUE}
-knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
-knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, dev = "ragg_png", dpi = 120)
 ```
 
 ## 1.4 数据与 Excel 透视表
@@ -26,7 +23,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
 安装块仅在缺包时运行。
 
 ```{r install, eval=FALSE}
-install.packages(c("sf", "tidyverse", "tmap", "RSQLite"))
+install.packages(c("here", "sf", "tidyverse", "tmap", "RSQLite", "readxl"))
 ```
 
 ## 加载工具
@@ -34,13 +31,10 @@ install.packages(c("sf", "tidyverse", "tmap", "RSQLite"))
 `sf` 处理矢量，`tidyverse` 整理表格，`tmap` 制图，`RSQLite` 读写数据库。
 
 ```{r load-tools}
-helper <- c("tutorial-tools.R", "../tutorial-tools.R")
-source(helper[file.exists(helper)][1])
-gis_packages(c("sf", "tidyverse", "tmap", "RSQLite"))
 library(sf)
 library(tidyverse)
 library(tmap)
-root <- gis_root()
+root <- here::here()
 ```
 
 ## 读取边界
@@ -48,10 +42,9 @@ root <- gis_root()
 `shape` 包含行政区属性和 geometry；`st_crs()` 查看坐标参考系，`st_geometry()` 只取形状。
 
 ```{r read-boundary}
-boundary <- gis_file("data/raw/london/boundaries/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp",
-                     "^London_Borough_Excluding_MHW\\.shp$")
+boundary <- file.path(root, "data/raw/london/boundaries/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")
 shape <- sf::st_read(boundary, quiet = TRUE)
-gis_unique(shape, "GSS_CODE")
+stopifnot("GSS_CODE" %in% names(shape), !anyNA(shape$GSS_CODE), !anyDuplicated(shape$GSS_CODE))
 summary(shape)
 sf::st_crs(shape)
 plot(sf::st_geometry(shape))
@@ -68,19 +61,19 @@ if (file.exists(pivot_file)) {
 } else {
 
   mycsv <- readr::read_csv(
-    gis_file("data/raw/london/attributes/fly-tipping-borough.csv"),
+    file.path(root, "data/raw/london/attributes/fly-tipping-borough.csv"),
     locale = readr::locale(encoding = "GB18030"), show_col_types = FALSE)
 }
 names(mycsv)
 if ("Row Labels" %in% names(mycsv)) mycsv <- dplyr::rename(mycsv, GSS_CODE = `Row Labels`)
 if ("行标签" %in% names(mycsv)) mycsv <- dplyr::rename(mycsv, GSS_CODE = `行标签`)
 if ("2011/12/1" %in% names(mycsv)) mycsv <- dplyr::rename(mycsv, `2011_12` = `2011/12/1`)
-gis_columns(mycsv, "GSS_CODE")
+stopifnot("GSS_CODE" %in% names(mycsv))
 mycsv <- mycsv %>%
   dplyr::filter(GSS_CODE != "总计") %>%
   dplyr::select(-dplyr::any_of("总计")) %>%
   dplyr::rename_with(~ gsub("-", "_", .x))
-gis_unique(mycsv, "GSS_CODE")
+stopifnot("GSS_CODE" %in% names(mycsv), !anyNA(mycsv$GSS_CODE), !anyDuplicated(mycsv$GSS_CODE))
 ```
 
 ## 按代码连接
@@ -88,14 +81,8 @@ gis_unique(mycsv, "GSS_CODE")
 两侧 `anti_join()` 检查未匹配，唯一键验证后执行一对一左连接。
 
 ```{r join-and-check}
-if (!exists("shape", inherits = FALSE)) {
-  stop("当前会话没有 shape：请先运行 read-boundary，再运行本块。", call. = FALSE)
-}
-if (!exists("mycsv", inherits = FALSE)) {
-  stop("当前会话没有 mycsv：请先运行 read-pivot，再运行本块。", call. = FALSE)
-}
-gis_unique(shape, "GSS_CODE")
-gis_unique(mycsv, "GSS_CODE")
+stopifnot("GSS_CODE" %in% names(shape), !anyNA(shape$GSS_CODE), !anyDuplicated(shape$GSS_CODE))
+stopifnot("GSS_CODE" %in% names(mycsv), !anyNA(mycsv$GSS_CODE), !anyDuplicated(mycsv$GSS_CODE))
 dplyr::anti_join(sf::st_drop_geometry(shape), mycsv, by = "GSS_CODE")
 dplyr::anti_join(mycsv, sf::st_drop_geometry(shape), by = "GSS_CODE")
 shape2 <- dplyr::left_join(shape, mycsv, by = "GSS_CODE", relationship = "one-to-one")
@@ -109,7 +96,7 @@ head(sf::st_drop_geometry(shape2), 10)
 
 ```{r first-map}
 year_column <- "2011_12"
-gis_columns(shape2, year_column)
+stopifnot(year_column %in% names(shape2))
 tmap::tmap_mode("plot")
 tmap::tm_shape(shape2) + tmap::tm_polygons(fill = year_column)
 ```
@@ -119,8 +106,10 @@ tmap::tm_shape(shape2) + tmap::tm_polygons(fill = year_column)
 导出连接后的 `shape2`，另加 `original_csv` 表；时间戳文件名保留旧结果。
 
 ```{r export-new-geopackage, eval=FALSE}
-target <- gis_new_output("week01", paste0("flytipping-tutorial-",
+dir.create(file.path(root, "week01/outputs"), recursive = TRUE, showWarnings = FALSE)
+target <- file.path(root, "week01/outputs", paste0("flytipping-tutorial-",
   format(Sys.time(), "%Y%m%d-%H%M%S"), ".gpkg"))
+stopifnot(!file.exists(target))
 sf::st_write(shape2, target, layer = "london_boroughs_fly_tipping", quiet = TRUE)
 con <- DBI::dbConnect(RSQLite::SQLite(), dbname = target)
 tryCatch({
@@ -132,17 +121,17 @@ sf::st_layers(target)
 
 ## Homework：新西兰
 
-使用 Territorial Authority 2018 generalised 边界和 Census 的 `2018 paid employee`。此块仅检查工作表，完整处理见 [homework.Rmd](homework.Rmd)。SA1 与 territorial authority 是不同空间层级。
+使用 Territorial Authority 2018 generalised 边界和 Census 的 `2018 paid employee`。完整处理见 [homework.Rmd](homework.Rmd)。SA1 与 territorial authority 是不同空间层级。
 
 ```{r homework-start, eval=FALSE}
 library(readxl)
-census <- gis_file("data/raw/nz2018/census/2018-SA1-dataset-individual-part-3a-total-NZ_updated_16-7-20.xlsx")
+census <- file.path(root, "data/raw/nz2018/census/2018-SA1-dataset-individual-part-3a-total-NZ_updated_16-7-20.xlsx")
 readxl::excel_sheets(census)
 preview <- readxl::read_excel(census, sheet = "Territorial authority", col_names = FALSE, n_max = 12)
 preview
 ```
 
-课堂结果与图片见 [运行记录](../README.md)。阅读：Goodchild，Geocomputation with R 第 2 章。
+阅读：Goodchild，Geocomputation with R 第 2 章。
 
 ## 资料链接
 

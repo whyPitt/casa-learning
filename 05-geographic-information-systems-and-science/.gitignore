@@ -17,3 +17,4 @@ week[0-9][0-9]/outputs/
 # Rendered HTML reports stay local
 *.html
 *.htm
+/tutorial-tools.R

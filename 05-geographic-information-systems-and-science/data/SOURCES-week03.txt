@@ -1,43 +1,10 @@
-CASA0005 Week 03 classroom inputs
-Downloaded and verified: 2026-10-30
-Purpose: classroom demonstration of projections, climate raster extraction, and descriptive statistics.
-
-1. GADM 4.1 Australia administrative boundaries
-Source page: https://gadm.org/download_country.html
-Official page download implementation: https://gadm.org/js/download.js
-Direct download: https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_AUS.gpkg
+GADM 4.1 — Australia administrative boundaries
+Source: https://gadm.org/download_country.html
+Download: https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_AUS.gpkg
 License: https://gadm.org/license.html
-File: gadm41_AUS.gpkg
-Format: GeoPackage / SQLite
-Downloaded bytes: 91648000
-SHA-256: 78c9a9fb2037b62bd5d58ab473ac76983757ae5ba04404f5c9283a88487156ac
-Verification: HTTP 200; expected size; SQLite format 3 header; read-only PRAGMA quick_check = ok.
-Layers: ADM_ADM_0 (country), ADM_ADM_1, ADM_ADM_2. CRS metadata: EPSG:4326.
-Classroom code selects the single layer ending in _0.
-Attribution: GADM, Database of Global Administrative Areas, version 4.1; Australia country download.
 
-2. WorldClim 2.1 historical monthly mean air temperature
-Source page: https://www.worldclim.org/data/worldclim21.html
-Direct download: https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_5m_tavg.zip
+WorldClim 2.1 — monthly mean temperature, 1970–2000, 5 arc-minutes, °C
+Source: https://www.worldclim.org/data/worldclim21.html
+Download: https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_5m_tavg.zip
 License: https://www.worldclim.org/about.html
-Variable: tavg, monthly average temperature.
-Resolution: 5 arc-minutes (5m in the filename means angular minutes, not metres).
-Climate baseline: 1970-2000.
-Units: degrees Celsius (C), according to the official download table.
-File: wc2.1_5m_tavg.zip
-Downloaded bytes: 126719768
-SHA-256: dc963ba01132f42bcb8865c0475f7336b78fd14f65ea1bbfa394619a6770bdad
-Verification: HTTP 200; expected size; ZIP integrity/CRC check passed for every entry.
-Contents: exactly 12 GeoTIFFs, one per month, January=01 through December=12.
-Extracted directory: worldclim/
-Expected names: wc2.1_5m_tavg_01.tif through wc2.1_5m_tavg_12.tif.
-Total extracted bytes: 133106418.
-January bytes: 11015478. December bytes: 10995525.
-Attribution: Fick, S.E. and R.J. Hijmans, 2017. WorldClim 2: new 1km spatial resolution climate surfaces for global land areas. International Journal of Climatology 37(12): 4302-4315.
-DOI: https://doi.org/10.1002/joc.5086
-These are long-term monthly climate normals, not daily or real-time observations, and not future SSP projections.
-
-Use and redistribution
-Both official license pages state that academic and other non-commercial use is permitted; redistribution or commercial use requires prior permission. Keep the downloaded GPKG, ZIP and TIFF inputs out of the public GitHub repository. Share source URLs, preparation instructions, code, and permitted derived maps instead. Do not treat the course tutorial's CC BY-SA license as the license of these raw datasets.
-
-This record documents input download and integrity checks only. No R analysis, homework completion or submission is asserted by this file.
+Citation: Fick, S.E. and Hijmans, R.J. (2017). WorldClim 2: new 1-km spatial resolution climate surfaces for global land areas. International Journal of Climatology, 37(12), 4302–4315. https://doi.org/10.1002/joc.5086

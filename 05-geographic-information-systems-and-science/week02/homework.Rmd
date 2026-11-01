@@ -10,9 +10,7 @@ editor_options:
 
 Washington 2018–19 Science 的县级人数加权比较：达标人数合计 ÷ 应考人数合计 × 100，再与相同完整学校记录构成的州样本基准比较。
 
-主分析限定 `School`、`All` / `All Students`、`All Grades`、`Science`，保留 WCAS 和 AIM 两类测试；学校、学区、州记录不重复相加，`All Grades` 不再与单年级行相加。项目为课程 `casa0005.Rproj`。
-
-Knit 从头计算普通分析块；安装、下载和导出独立执行。
+主分析限定 `School`、`All` / `All Students`、`All Grades`、`Science`，保留 WCAS 和 AIM 两类测试；学校、学区、州记录不重复相加，`All Grades` 不再与单年级行相加。
 
 ## 结果摘要
 
@@ -21,37 +19,32 @@ Knit 从头计算普通分析块；安装、下载和导出独立执行。
 ## 环境
 
 ```{r week02-hw-setup, include=FALSE, eval=TRUE}
-knitr::opts_chunk$set(eval = TRUE, echo = TRUE, fig.width = 9, fig.height = 7) # 报告执行普通分析并显示代码
-knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, fig.width = 9, fig.height = 7, dev = "ragg_png", dpi = 120)
 ```
 
 ```{r week02-hw-tools}
-helper <- c("tutorial-tools.R", "../tutorial-tools.R") # 分别兼容项目根目录和 week02 工作目录
-helper <- helper[file.exists(helper)] # 只留下实际存在的工具文件
-if (!length(helper)) stop("请先打开课程 casa0005.Rproj。", call. = FALSE) # 找不到就停，不猜路径
-source(helper[[1]]) # 载入共用的路径、包、字段检查函数
-root <- gis_root() # 定位有 casa0005.Rproj 的课程根目录
-gis_packages(c("tidyverse", "sf", "tmap", "jsonlite", "ragg")) # 确认所需包均可使用
-library(tidyverse) # 加载 readr、dplyr、tidyr、ggplot2 等
-library(sf) # 读取和处理带 geometry 的矢量数据
-library(tmap) # 制作地图
-stopifnot(packageVersion("tmap") >= "4.0.0", packageVersion("dplyr") >= "1.1.1") # 本机所用 tmap 4 与一对一连接检查所需最低版本
+root <- here::here()
+library(tidyverse)
+library(sf)
+library(tmap)
 ```
 
-## 输入与版本适配
+```{r week02-hw-install, eval=FALSE}
+install.packages(c("here", "tidyverse", "sf", "tmap", "jsonlite", "ragg"))
+```
+
+## 输入数据
 
 使用成绩 CSV、Washington 县边界 GeoJSON 和官方字段字典。旧 `count_met_standard` 对应当前 `count_consistent_grade_level`；本题分母为 `count_of_students_expected`，不使用实考人数 `count_of_students_tested`。2026 更新后的现成百分比已回算为 tested 分母，不能直接代替题目要求。
 
-字段字典的 `field_dictionary$name` 是字段显示名，根级 `metadata$name` 是数据集标题；`fieldName` 对应 CSV 列名。
-
 ```{r week02-hw-inputs}
-assessment_file <- gis_file("data/raw/washington2018/assessment/report_card_assessment_2018_19_republished_20261014.csv") # 已下载成绩
-county_file <- gis_file("data/raw/washington2018/boundaries/washington_counties_natural_shoreline.geojson") # 已下载县边界
-dictionary_file <- gis_file("data/raw/washington2018/documentation/official_dataset_metadata.json") # 当前版元数据
-metadata <- jsonlite::fromJSON(dictionary_file) # JSON 转成 R 列表，里面有字段定义
-field_dictionary <- metadata$columns %>% # 取出官方列信息
-  dplyr::select(fieldName, name, description) # 保留机器字段名、显示名称和说明
-field_dictionary # 查看人数列和 DAT 列的含义
+assessment_file <- file.path(root, "data/raw/washington2018/assessment/report_card_assessment_2018_19_republished_20261014.csv")
+county_file <- file.path(root, "data/raw/washington2018/boundaries/washington_counties_natural_shoreline.geojson")
+dictionary_file <- file.path(root, "data/raw/washington2018/documentation/official_dataset_metadata.json")
+metadata <- jsonlite::fromJSON(dictionary_file)
+field_dictionary <- metadata$columns %>%
+  dplyr::select(fieldName, name, description)
+field_dictionary
 ```
 
 ### 完整读取
@@ -59,13 +52,13 @@ field_dictionary # 查看人数列和 DAT 列的含义
 先按文字读取全表，保留代码前导零和抑制标记；人数随后显式转换。
 
 ```{r week02-hw-read-full}
-report <- readr::read_csv(assessment_file, col_types = readr::cols(.default = readr::col_character()), na = c("", "NULL", "NA")) # 完整读取，空白保留为 NA
-required <- c("schoolyear", "organizationlevel", "county", "schoolorganizationid", "studentgrouptype", "studentgroup", "gradelevel", "testsubject", "testadministration", "test_administration_group", "count_of_students_expected", "count_of_students_tested", "count_consistent_grade_level", "dat", "dat_for_consistent_grade_level_knowledge_and_above_including_previously_passed_") # 本版分析所需字段
-gis_columns(report, required) # 缺列就停止，避免套用到不同版本
-readr::problems(report) # 应是空的解析问题表；有问题先检查再继续
+report <- readr::read_csv(assessment_file, col_types = readr::cols(.default = readr::col_character()), na = c("", "NULL", "NA"))
+required <- c("schoolyear", "organizationlevel", "county", "schoolorganizationid", "studentgrouptype", "studentgroup", "gradelevel", "testsubject", "testadministration", "test_administration_group", "count_of_students_expected", "count_of_students_tested", "count_consistent_grade_level", "dat", "dat_for_consistent_grade_level_knowledge_and_above_including_previously_passed_")
+stopifnot(all(required %in% names(report)))
+readr::problems(report)
 dim(report)
-dplyr::glimpse(report) # 简要查看每列的数据类型和样例
-report %>% dplyr::count(schoolyear, organizationlevel) # 看有哪些学年与统计层级
+dplyr::glimpse(report)
+report %>% dplyr::count(schoolyear, organizationlevel)
 ```
 
 ## 记录层级与唯一键
@@ -73,53 +66,53 @@ report %>% dplyr::count(schoolyear, organizationlevel) # 看有哪些学年与�
 主分析唯一键为“学校 × 测试”，不是单独学校代码。州记录留作独立核对，不进入学校人数求和。
 
 ```{r week02-hw-filter}
-report %>% dplyr::filter(testsubject == "Science") %>% dplyr::count(studentgrouptype, studentgroup, sort = TRUE) # 看 Science 学生群体标签
-science <- report %>% # 从完整成绩表开始
-  dplyr::filter(schoolyear == "2018-19", testsubject == "Science", studentgrouptype == "All", studentgroup == "All Students", gradelevel == "All Grades") # 固定学年、科目、总群体和全年级
-science %>% dplyr::count(organizationlevel, testadministration, test_administration_group) # 检查层级和两种测试，没有把不同层级加总
-schools <- science %>% # 学校行用于县级统计
-  dplyr::filter(organizationlevel == "School", !is.na(county), county != "Multiple", testadministration %in% c("WCAS", "AIM")) # 排除非县级名称；两种 Science 测试均保留
-stopifnot(nrow(schools) > 0L, all(schools$testadministration == schools$test_administration_group)) # 防止空筛选或版本中的测试标签冲突
+report %>% dplyr::filter(testsubject == "Science") %>% dplyr::count(studentgrouptype, studentgroup, sort = TRUE)
+science <- report %>%
+  dplyr::filter(schoolyear == "2018-19", testsubject == "Science", studentgrouptype == "All", studentgroup == "All Students", gradelevel == "All Grades")
+science %>% dplyr::count(organizationlevel, testadministration, test_administration_group)
+schools <- science %>%
+  dplyr::filter(organizationlevel == "School", !is.na(county), county != "Multiple", testadministration %in% c("WCAS", "AIM"))
+stopifnot(nrow(schools) > 0L, all(schools$testadministration == schools$test_administration_group))
 school_keys <- schools %>% dplyr::count(schoolorganizationid, testadministration)
-stopifnot(!anyNA(schools$schoolorganizationid), all(school_keys$n == 1L)) # 重复时不能 distinct() 随便删；应回看筛选口径
-schools %>% dplyr::count(testadministration, dat, sort = TRUE) # 保留 DAT 状态检查
+stopifnot(!anyNA(schools$schoolorganizationid), all(school_keys$n == 1L))
+schools %>% dplyr::count(testadministration, dat, sort = TRUE)
 ```
 
 ## DAT 与完整人数对
 
-仅纯整数文本可转换为人数，不从 `<10` 抽取 10。`usable` 要求 general DAT 为 `None`，且分子、分母同时完整；专门 DAT 列显示 `No DAT` 不单独保证人数完整。缺失或保密人数不填零，不分别忽略缺失后累加两个不同集合。
+只使用 general DAT 为 `None` 且分子、分母完整的记录。保密值（如 `<10`）保留为缺失，不填零。
 
 ```{r week02-hw-counts}
-strict_count <- function(x) { # 定义只接受非负整数文本的转换函数
-  out <- rep(NA_real_, length(x)) # 先建立与输入等长的缺失数值向量
-  ok <- !is.na(x) & grepl("^[0-9]+$", x) # 只有由数字组成的字符串才允许转换
-  out[ok] <- as.numeric(x[ok]) # 把允许的部分转成数值，其余仍是 NA
-  out # 函数返回整个向量
+strict_count <- function(x) {
+  out <- rep(NA_real_, length(x))
+  ok <- !is.na(x) & grepl("^[0-9]+$", x) # 保密符号不转成人数
+  out[ok] <- as.numeric(x[ok])
+  out
 }
-schools <- schools %>% # 保留原始文本列，同时新增分析列
-  dplyr::mutate(expected = strict_count(count_of_students_expected), met = strict_count(count_consistent_grade_level), county_key = stringr::str_to_upper(stringr::str_squish(county))) # 标准化县名空格和大小写
-schools %>% dplyr::count(dat, dat_for_consistent_grade_level_knowledge_and_above_including_previously_passed_, sort = TRUE) # 查看保密状态，不能把隐藏值当作零
-schools <- schools %>% # 增加完整对标志，稍后用同一批记录的分子分母
-  dplyr::mutate(usable = !is.na(dat) & dat == "None" & !is.na(expected) & !is.na(met) & expected > 0 & met >= 0 & met <= expected) # general DAT 未遮蔽，应考正数，达标人数不超过应考
-schools %>% dplyr::count(testadministration, usable) # 统计两类测试各有多少可使用行
+schools <- schools %>%
+  dplyr::mutate(expected = strict_count(count_of_students_expected), met = strict_count(count_consistent_grade_level), county_key = stringr::str_to_upper(stringr::str_squish(county)))
+schools %>% dplyr::count(dat, dat_for_consistent_grade_level_knowledge_and_above_including_previously_passed_, sort = TRUE)
+schools <- schools %>%
+  dplyr::mutate(usable = !is.na(dat) & dat == "None" & !is.na(expected) & !is.na(met) & expected > 0 & met >= 0 & met <= expected)
+schools %>% dplyr::count(testadministration, usable)
 ```
 
 ## 县级加权汇总
 
-沿用参考代码的完整记录法：先排除缺失人数对，再按总达标人数除以总应考人数。记录排除比例不是学生排除比例；已知应考人数仍不包括本身被隐藏的计数。主图对应完整公开学校测试记录样本，不宣称为全体学生的精确县率。
+按县汇总完整记录的达标人数和应考人数，再计算百分比。保密记录被排除，结果仅代表完整公开记录样本。
 
 ```{r week02-hw-county-totals}
-coverage <- schools %>% # 先看各县输入和排除情况
-  dplyr::group_by(county_key) %>% # 每个县单独汇总
-  dplyr::summarise(n_records = dplyr::n(), n_used = sum(usable), n_excluded = sum(!usable), known_expected_all = sum(expected, na.rm = TRUE), known_expected_used = sum(expected[usable]), .groups = "drop") # known 是已公开人数，不是完整真实总人数
-county_only <- schools %>% # 主分析只使用完整人数对
-  dplyr::filter(usable) %>% # 同时保留分子分母，去掉不完整记录
-  dplyr::group_by(county_key) %>% # 按县分组
-  dplyr::summarise(total_county_met_standard = sum(met), total_county_to_test = sum(expected), .groups = "drop") %>% # 两个和来自同一批记录
-  dplyr::mutate(percent_met_per_county = 100 * total_county_met_standard / total_county_to_test) # 计算 0–100 的百分比
-county_only <- coverage %>% dplyr::left_join(county_only, by = "county_key", relationship = "one-to-one") # 保留没有可用人数对的县，其率为 NA
-gis_unique(county_only, "county_key") # 确认一县一行
-county_only %>% dplyr::arrange(dplyr::desc(n_excluded)) # 查看缺失最多的县与记录数
+coverage <- schools %>%
+  dplyr::group_by(county_key) %>%
+  dplyr::summarise(n_records = dplyr::n(), n_used = sum(usable), n_excluded = sum(!usable), known_expected_all = sum(expected, na.rm = TRUE), known_expected_used = sum(expected[usable]), .groups = "drop")
+county_only <- schools %>%
+  dplyr::filter(usable) %>%
+  dplyr::group_by(county_key) %>%
+  dplyr::summarise(total_county_met_standard = sum(met), total_county_to_test = sum(expected), .groups = "drop") %>%
+  dplyr::mutate(percent_met_per_county = 100 * total_county_met_standard / total_county_to_test)
+county_only <- coverage %>% dplyr::left_join(county_only, by = "county_key", relationship = "one-to-one")
+stopifnot(!anyNA(county_only$county_key), !anyDuplicated(county_only$county_key))
+county_only %>% dplyr::arrange(dplyr::desc(n_excluded))
 ```
 
 ## 样本州基准与县差值
@@ -127,12 +120,12 @@ county_only %>% dplyr::arrange(dplyr::desc(n_excluded)) # 查看缺失最多的�
 基准来自相同完整学校记录的全州人数合计，不对学校率或县率作简单平均。县率减州基准的差值以百分点计，分类前保留原精度；`1e-8` 仅作浮点容差。
 
 ```{r week02-hw-state-comparison}
-stopifnot(sum(county_only$total_county_to_test, na.rm = TRUE) > 0) # 没有可用人数就不能计算州基准
-state_average <- 100 * sum(county_only$total_county_met_standard, na.rm = TRUE) / sum(county_only$total_county_to_test, na.rm = TRUE) # 汇总已纳入记录的州加权基准
-county_comparison <- county_only %>% # 在每县一行的表上增加比较列
-  dplyr::mutate(difference_to_state = percent_met_per_county - state_average, above_below = dplyr::case_when(is.na(difference_to_state) ~ "无完整公开人数对", difference_to_state > 1e-8 ~ "高于样本州基准", difference_to_state < -1e-8 ~ "低于样本州基准", TRUE ~ "与样本州基准相同")) # 差值单位为百分点，不是百分比变化
-state_average # 样本州基准
-county_comparison %>% dplyr::arrange(dplyr::desc(difference_to_state)) # 从高到低查看县级差值
+stopifnot(sum(county_only$total_county_to_test, na.rm = TRUE) > 0)
+state_average <- 100 * sum(county_only$total_county_met_standard, na.rm = TRUE) / sum(county_only$total_county_to_test, na.rm = TRUE)
+county_comparison <- county_only %>%
+  dplyr::mutate(difference_to_state = percent_met_per_county - state_average, above_below = dplyr::case_when(is.na(difference_to_state) ~ "无完整公开人数对", difference_to_state > 1e-8 ~ "高于样本州基准", difference_to_state < -1e-8 ~ "低于样本州基准", TRUE ~ "与样本州基准相同"))
+state_average
+county_comparison %>% dplyr::arrange(dplyr::desc(difference_to_state))
 ```
 
 ### 官方 State 行核对
@@ -140,12 +133,12 @@ county_comparison %>% dplyr::arrange(dplyr::desc(difference_to_state)) # 从高�
 官方州汇总可能保有学校公开行中的隐藏人数，属于独立口径，不替换主图基准，也不用于反推学校隐私计数。
 
 ```{r week02-hw-official-state-check}
-official_state <- science %>% # 从同一学年、科目、总群体、全年级的数据取州级行
-  dplyr::filter(organizationlevel == "State", testadministration %in% c("WCAS", "AIM")) %>% # 只取全州两种 Science 测试
-  dplyr::mutate(expected = strict_count(count_of_students_expected), met = strict_count(count_consistent_grade_level)) # 使用相同人数转换
-stopifnot(nrow(official_state) == 2L, all(official_state$dat == "None"), !anyDuplicated(official_state$testadministration), all(is.finite(official_state$expected)), all(is.finite(official_state$met)), all(official_state$expected > 0), all(official_state$met <= official_state$expected)) # 保证可比较且不重复
-official_state_rate <- 100 * sum(official_state$met) / sum(official_state$expected) # 官方全州行重算的同分母率
-tibble(basis = c("完整公开学校记录样本", "官方 State All Grades 行"), percent = c(state_average, official_state_rate)) # 并列展示，保留口径差异
+official_state <- science %>%
+  dplyr::filter(organizationlevel == "State", testadministration %in% c("WCAS", "AIM")) %>%
+  dplyr::mutate(expected = strict_count(count_of_students_expected), met = strict_count(count_consistent_grade_level))
+stopifnot(nrow(official_state) == 2L, all(official_state$dat == "None"), !anyDuplicated(official_state$testadministration), all(is.finite(official_state$expected)), all(is.finite(official_state$met)), all(official_state$expected > 0), all(official_state$met <= official_state$expected))
+official_state_rate <- 100 * sum(official_state$met) / sum(official_state$expected)
+tibble(basis = c("完整公开学校记录样本", "官方 State All Grades 行"), percent = c(state_average, official_state_rate))
 ```
 
 ## 县边界与连接
@@ -153,64 +146,54 @@ tibble(basis = c("完整公开学校记录样本", "官方 State All Grades 行"
 当前字段为 `COUNTYLABEL`，旧 Shapefile 的 `countylabe` 是截短名称。县名统一后双向检查漏接，再作一对一左连接；缺数据的县保留边界。
 
 ```{r week02-hw-read-boundary}
-shape <- sf::st_read(county_file, quiet = TRUE) # 读取县边界；不要把第一周的 shape 对象当成本周输入
-gis_columns(shape, "COUNTYLABEL") # 确认当前边界的县名列
-stopifnot(nrow(shape) == 39L, !any(sf::st_is_empty(shape))) # Washington 应有 39 个非空县几何
-shape <- shape %>% dplyr::mutate(county_key = stringr::str_to_upper(stringr::str_squish(COUNTYLABEL))) # 使用与成绩表相同的县名规则
-gis_unique(shape, "county_key") # 一县一个边界；重复就不能继续一对一连接
-sf::st_crs(shape) # 看边界坐标参考系；本地文件为经纬度坐标
-unmatched_counts <- dplyr::anti_join(county_comparison, sf::st_drop_geometry(shape), by = "county_key") # 有统计但没有边界的县
-unmatched_shape <- dplyr::anti_join(sf::st_drop_geometry(shape), county_comparison, by = "county_key") # 有边界但没有学校记录的县
-unmatched_counts # 需要检查的第一侧未匹配
-unmatched_shape # 需要检查的第二侧未匹配
-stopifnot(nrow(unmatched_counts) == 0L) # 有无法定位的县先解决拼写/来源问题
+shape <- sf::st_read(county_file, quiet = TRUE)
+stopifnot("COUNTYLABEL" %in% names(shape))
+stopifnot(nrow(shape) == 39L, !any(sf::st_is_empty(shape)))
+shape <- shape %>% dplyr::mutate(county_key = stringr::str_to_upper(stringr::str_squish(COUNTYLABEL)))
+stopifnot(!anyNA(shape$county_key), !anyDuplicated(shape$county_key))
+sf::st_crs(shape)
+unmatched_counts <- dplyr::anti_join(county_comparison, sf::st_drop_geometry(shape), by = "county_key")
+unmatched_shape <- dplyr::anti_join(sf::st_drop_geometry(shape), county_comparison, by = "county_key")
+unmatched_counts
+unmatched_shape
+stopifnot(nrow(unmatched_counts) == 0L)
 ```
 
 ```{r week02-hw-join}
-joined_data <- shape %>% dplyr::left_join(county_comparison, by = "county_key", relationship = "one-to-one") # 左边是边界，保留全部 39 县
-stopifnot(nrow(joined_data) == nrow(shape)) # 连接不能增加或丢失边界行
-joined_data <- joined_data %>% dplyr::mutate(above_below = tidyr::replace_na(above_below, "无完整公开人数对")) # 未匹配县明确归入无数据类别
-sf::st_drop_geometry(joined_data) %>% dplyr::select(COUNTYLABEL, percent_met_per_county, difference_to_state, n_used, n_excluded, above_below) # 核对地图将使用的表
+joined_data <- shape %>% dplyr::left_join(county_comparison, by = "county_key", relationship = "one-to-one")
+stopifnot(nrow(joined_data) == nrow(shape))
+joined_data <- joined_data %>% dplyr::mutate(above_below = tidyr::replace_na(above_below, "无完整公开人数对"))
+sf::st_drop_geometry(joined_data) %>% dplyr::select(COUNTYLABEL, percent_met_per_county, difference_to_state, n_used, n_excluded, above_below)
 ```
 
 ## 高于／低于基准地图
 
-类别、配色和缺失值单独编码。`map_font` 为屏幕与 PNG 明确指定中文字体；跨电脑使用需有对应中文字形。地图表示描述差异，不解释学校或政策因果。
+蓝色表示低于州样本基准，红色表示高于，灰色表示缺失。
 
 ```{r week02-hw-map}
-tmap::tmap_mode("plot") # 使用可保存的静态地图模式
-map_font <- "Arial Unicode MS" # 本机已验证可读取并覆盖中文的字体，避免图题和图例显示方框
-map_colors <- c("低于样本州基准" = "#2166ac", "高于样本州基准" = "#b2182b", "与样本州基准相同" = "#f7f7f7", "无完整公开人数对" = "#bdbdbd") # 蓝低、红高、灰色缺数据
-wa_map <- tmap::tm_shape(joined_data) + # 指定连接后的边界数据
-  tmap::tm_polygons(fill = "above_below", fill.scale = tmap::tm_scale_categorical(values = map_colors), fill.legend = tmap::tm_legend(title = "县与样本州基准比较", title.fontfamily = map_font, text.fontfamily = map_font)) + # 用比较类别填色
-  tmap::tm_title("Washington Science, 2018–19：完整公开记录样本", fontfamily = map_font) + # 在标题中写清范围并指定中文字体
-  tmap::tm_layout(text.fontfamily = map_font) # 图内其他文字使用同一字体
-wa_map # 在 Plots 查看；图例和灰色县也需要检查
+tmap::tmap_mode("plot")
+map_font <- "Arial Unicode MS"
+map_colors <- c("低于样本州基准" = "#2166ac", "高于样本州基准" = "#b2182b", "与样本州基准相同" = "#f7f7f7", "无完整公开人数对" = "#bdbdbd")
+wa_map <- tmap::tm_shape(joined_data) +
+  tmap::tm_polygons(fill = "above_below", fill.scale = tmap::tm_scale_categorical(values = map_colors), fill.legend = tmap::tm_legend(title = "县与样本州基准比较", title.fontfamily = map_font, text.fontfamily = map_font)) +
+  tmap::tm_title("Washington Science, 2018–19：完整公开记录样本", fontfamily = map_font) +
+  tmap::tm_layout(text.fontfamily = map_font)
+wa_map
 ```
 
 ## 可选导出
 
-目标位于 `week02/outputs/`；任一同名目标存在时停止，避免覆盖。PNG 通过 ragg 保存外观，CSV 保存属性，GPKG 保存空间结果；GPKG 不携带 tmap 配色。
+结果保存为 CSV、PNG 和 GeoPackage。
 
 ```{r week02-hw-export, eval=FALSE}
-csv_out <- gis_new_output("week02", "washington-science-2018-19-my-run.csv") # 新建目标路径，同名时停止
-png_out <- gis_new_output("week02", "washington-science-2018-19-my-run.png") # PNG 是图片，不能编辑属性表
-gpkg_out <- gis_new_output("week02", "washington-science-2018-19-my-run.gpkg") # GPKG 保留几何和属性，不等于图片样式
-readr::write_csv(sf::st_drop_geometry(joined_data), csv_out) # 保存县级表和缺失检查字段
-tmap::tmap_save(wa_map, filename = png_out, device = ragg::agg_png, width = 9, height = 7, units = "in", dpi = 180) # 保存地图图片
-sf::st_write(joined_data, gpkg_out, layer = "county_science", quiet = TRUE) # 保存空间数据，不删除旧图层
-data.frame(file = c(csv_out, png_out, gpkg_out), exists = file.exists(c(csv_out, png_out, gpkg_out))) # 导出后确认三个文件存在
+output_dir <- file.path(root, "week02/outputs")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+csv_out <- file.path(output_dir, "washington-science-2018-19-my-run.csv")
+png_out <- file.path(output_dir, "washington-science-2018-19-my-run.png")
+gpkg_out <- file.path(output_dir, "washington-science-2018-19-my-run.gpkg")
+stopifnot(!any(file.exists(c(csv_out, png_out, gpkg_out))))
+readr::write_csv(sf::st_drop_geometry(joined_data), csv_out)
+tmap::tmap_save(wa_map, filename = png_out, device = ragg::agg_png, width = 9, height = 7, units = "in", dpi = 180)
+sf::st_write(joined_data, gpkg_out, layer = "county_science", quiet = TRUE)
+data.frame(file = c(csv_out, png_out, gpkg_out), exists = file.exists(c(csv_out, png_out, gpkg_out)))
 ```
-
-## 报告复现
-
-从新 R 会话 Knit 生成 HTML，可选导出仍跳过。报告保留人数口径、DAT 排除覆盖、样本州基准、官方 State 行的独立核对及地图，不把两个口径混写。
-
-## 来源与改编
-
-- [官方第 2 章 Homework](https://andrewmaclachlan.github.io/CASA0005repo/introduction-to-r.html#homework-1)
-- [人数计算参考代码](https://github.com/andrewmaclachlan/CASA0005_homework/blob/main/homework_2_file.Rmd)
-- [Report Card Assessment School Years 2017-18 and 2018-19](https://data.wa.gov/Education/Report-Card-Assessment-School-Years-2017-18-and-2018-19/6rue-47ak)
-- [OSPI 2026 分母与保密处理更新说明](https://data.wa.gov/api/views/6rue-47ak/files/16810f92-591d-4e23-af3f-79b7d6bf02d0?download=true)
-
-中文整理与代码适配使用 AI 辅助；原作者、许可及改编范围见[来源与改编范围](../来源与改编范围.md)。

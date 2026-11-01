@@ -11,8 +11,6 @@ output:
 
 Lecture 3 的主题是 Representing the World；Practical 3 为 Spatial descriptive statistics。代码见 [本周 Practical](practical-中文教程.Rmd)，未来气温比较见 [Homework](homework.Rmd)。
 
-原作者 Andy MacLachlan、Adam Dennett、Claire Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与文档适配经 AI 辅助，见[改编范围](../来源与改编范围.md)。
-
 ## Representation、Vector 与 Raster
 
 空间表达取决于研究问题和尺度：点表示城市参考位置，面表示行政范围，栅格表达连续或分类表面。粗数据重采样成细网格不会增加真实观测信息。
@@ -78,18 +76,15 @@ CRS 定义坐标基准、轴和单位。经纬度为角度，投影坐标常以�
 
 差值采用 `SSP585 − SSP126`，区分“配对差值的中位数”与“两个中位数之差”。单一模型、有限点位与格网尺度限制解释范围。
 
-本课程表连接使用 dplyr joins；旧笔记的 R merge 示例不再作为当前操作方法。
+表连接使用 dplyr joins。
 
 ## 阅读与资料
 
-Navarro《Learning Statistics with R》第 5 章；Beecham 配色与布局；Geocomputation with R 第 7 章。反馈入口与正式提交入口分别处理，具体任务以 Moodle 和教师通知为准。
+Navarro《Learning Statistics with R》第 5 章；Beecham 配色与布局；Geocomputation with R 第 7 章。
 
 - [Module Outline](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=1)
 - [Lecture and Workshop Material](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=2)
 - [当前 Practical 第 3 章](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html)
-- [Assessment](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=3)
-- [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
-- [External usage](https://andrewmaclachlan.github.io/CASA0005repo/external-usage.html#license)
 - [Geographic data in R](https://r.geocompx.org/spatial-class.html)
 - [sf CRS 文档](https://r-spatial.github.io/sf/reference/st_crs.html)
 - [WorldClim v2.1 historical climate](https://www.worldclim.org/data/worldclim21.html)

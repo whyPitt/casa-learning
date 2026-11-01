@@ -13,8 +13,6 @@ editor_options:
 
 `tmax` 是每日最高气温的月平均气候值；十二层对应十二个日历月，不是二十年的逐年值或绝对最高温纪录。两条路径分别为 SSP1 / SSP5 家族内的具体情景。两情景固定模型、时期、网格、城市集合和取样格号。
 
-项目为课程 `casa0005.Rproj`。Knit 从头计算普通分析块；安装、下载和导出独立执行。
-
 ## 结果摘要
 
 180 个城市×月份配对均完整。SSP585−SSP126 的城市月份等权平均差为 3.31 °C；城市平均差从 Bunbury 的 2.78 °C 到 Orange 的 3.88 °C。三个海岸邻格均在 15 km 内；结果是单一模型、有限城市的情景比较。
@@ -22,109 +20,53 @@ editor_options:
 ## 环境
 
 ```{r week03-hw-setup, include=FALSE, eval=TRUE}
-knitr::opts_chunk$set(eval = TRUE, echo = TRUE, fig.width = 9, fig.height = 6) # 报告执行分析并设置图大小
-knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE, fig.width = 9, fig.height = 6, dev = "ragg_png", dpi = 120)
 ```
 
 ```{r week03-hw-paths}
-helper <- c("tutorial-tools.R", "../tutorial-tools.R") # 同时适配从课程根目录和 week03 目录打开文件
-helper <- helper[file.exists(helper)] # 只保留实际存在的工具文件路径
-if (!length(helper)) stop("先打开课程 casa0005.Rproj，再打开 week03/homework.Rmd。", call. = FALSE) # 路径不对时给出明确提示
-source(helper[[1]]) # 读取共用路径、包检查和连接键检查函数
-root <- gis_root()
-local_lib <- file.path(root, ".local-review", "R-library") # 指定课程已有的本地 R 包库
-if (dir.exists(local_lib)) .libPaths(c(local_lib, .libPaths())) # 若已有本地包库，把它放在查找顺序前面
-required_packages <- c("sf", "terra", "tidyverse", "tmap", "ragg") # 列出本文件要用的包
-missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)] # 检查哪些包尚未安装
-print(root)
-print(missing_packages)
+root <- here::here()
 ```
 
 ### 依赖安装（缺包时）
 
-课程本地包库为 `.local-review/R-library`，不纳入源代码提交。
-
 ```{r week03-hw-install-if-needed, eval=FALSE}
-dir.create(local_lib, recursive = TRUE, showWarnings = FALSE) # 创建课程本地包库；已有目录时保留原内容
-.libPaths(c(local_lib, .libPaths())) # 让当前 R 会话能找到这个包库
-options(timeout = max(1200, getOption("timeout", 60))) # 给较大的包至少 1200 秒下载时间
-if (length(missing_packages)) install.packages(missing_packages, lib = local_lib, repos = "https://cloud.r-project.org") # 只安装缺少的包
+install.packages(c("sf", "terra", "tidyverse", "tmap", "ragg", "here"))
 ```
 
 ### 加载依赖
 
 ```{r week03-hw-packages}
-gis_packages(required_packages) # 缺包时停止，避免直到后面的函数才报错
-library(sf) # 处理带 CRS 的国家边界和城市点
-library(terra) # 读取、裁剪、遮罩和提取栅格
+library(sf)
+library(terra)
 library(tidyverse)
-library(tmap) # 使用 tmap 4 绘制空间结果图
-stopifnot(packageVersion("tmap") >= "4.0.0", packageVersion("dplyr") >= "1.1.1") # 检查本教程使用的 API 版本
+library(tmap)
 ```
 
 ## 输入文件
 
-国界复用 GADM 4.1 Australia；未来气温采用 WorldClim CMIP6 的 ACCESS-CM2、5 分、2081–2100 `tmax`。课堂历史 `tavg` 不替代未来最高气温。输入清单记录 URL、完整字节数和本地路径。
+国界复用 GADM 4.1 Australia；未来气温采用 WorldClim CMIP6 的 ACCESS-CM2、5 分、2081–2100 `tmax`。课堂历史 `tavg` 不替代未来最高气温。
 
 ```{r week03-hw-inputs}
-gadm_file <- file.path(root, "data/raw/week03/gadm41_AUS.gpkg") # 复用课堂的 GADM 4.1 澳大利亚边界
-raw_dir <- file.path(root, "data/raw/week03/homework/ACCESS-CM2-5m-tmax-2081-2100") # 给本作业的未来温度单独建目录
-dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE) # 创建目录，不删除或覆盖旧文件
-input_manifest <- tibble::tibble( # 用一张小表保存情景、真实文件名和核验大小
-  scenario = c("SSP126", "SSP585"), # 两行分别代表两个情景
-  filename = c("wc2.1_5m_tmax_ACCESS-CM2_ssp126_2081-2100.tif", "wc2.1_5m_tmax_ACCESS-CM2_ssp585_2081-2100.tif"), # 保留官方下载文件名
-  expected_bytes = c(67905178, 68183485) # 2026-11-01 官方服务器报告的完整文件大小
-)
-input_manifest <- input_manifest %>% dplyr::mutate( # 在清单中加入可直接下载的 URL 和本地位置
-  url = paste0("https://geodata.ucdavis.edu/cmip6/5m/ACCESS-CM2/", tolower(scenario), "/", filename), # 拼接官方服务器路径
-  path = file.path(raw_dir, filename) # 将文件名放到本作业 raw 目录
-)
-print(input_manifest, width = Inf) # 把完整路径和 URL 展开显示，下载前核对
+gadm_file <- file.path(root, "data/raw/week03/gadm41_AUS.gpkg")
+raw_dir <- file.path(root, "data/raw/week03/homework/ACCESS-CM2-5m-tmax-2081-2100")
+dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
+tmax126_file <- file.path(raw_dir, "wc2.1_5m_tmax_ACCESS-CM2_ssp126_2081-2100.tif")
+tmax585_file <- file.path(raw_dir, "wc2.1_5m_tmax_ACCESS-CM2_ssp585_2081-2100.tif")
 ```
 
-### 下载与完整性
-
-已有完整文件复用；新下载先写 `.part`，通过大小核验后才成为正式输入，不覆盖已有不同版本。若官方版本改变，先更新来源记录与清单。
+### 下载
 
 ```{r week03-hw-download, eval=FALSE}
-download_once <- function(url, target, expected_bytes) { # 定义一次性下载函数；已有完整文件不覆盖
-  if (file.exists(target)) { # 先检查正式文件是否已经存在
-    if (!isTRUE(file.info(target)$size == expected_bytes)) stop("已有文件大小不符，请保留后核查：", target) # 不覆盖不完整或不同版本的文件
-    message("复用完整文件：", target) # 记录复用状态
-    return(invisible(target)) # 返回已有路径并结束本次函数调用
-  }
-  dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE) # 确保目标的上层目录存在
-  part <- tempfile(pattern = "download-", tmpdir = dirname(target), fileext = ".part") # 临时文件不冒充正式 TIFF 或 GeoPackage
-  on.exit(if (file.exists(part)) unlink(part), add = TRUE) # 函数结束时只清理本次建立的临时文件
-  old_options <- options(timeout = max(1200, getOption("timeout", 60))) # 临时延长下载超时
-  on.exit(options(old_options), add = TRUE) # 无论成功或失败，结束后恢复原下载设置
-  status <- utils::download.file(url, destfile = part, method = "libcurl", mode = "wb", quiet = FALSE) # 二进制下载并显示进度
-  if (!isTRUE(status == 0L)) stop("下载失败，请检查网络后重试：", url) # 非成功状态不能继续改名
-  if (!isTRUE(file.info(part)$size == expected_bytes)) stop("下载大小不完整或官方版本已变化：", url) # 对比完整字节数
-  if (file.exists(target)) stop("目标文件在下载期间出现，已停止以免覆盖：", target) # 再检查一次同名文件
-  if (!file.rename(part, target)) stop("临时文件改名失败：", target) # 只有完整下载才成为正式输入
-  message("下载完成：", target) # 显示最终保存位置
-  invisible(target) # 返回路径，不把整个文件读进 R
-}
-if (!file.exists(gadm_file)) download_once("https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_AUS.gpkg", gadm_file, 91648000) # 缺少边界时才补下载约 92 MB 的课堂边界
-for (i in seq_len(nrow(input_manifest))) { # 按清单顺序下载两种情景
-  download_once(input_manifest$url[[i]], input_manifest$path[[i]], input_manifest$expected_bytes[[i]]) # 每次只处理一个输入文件
-}
+options(timeout = 1200)
+download.file("https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_AUS.gpkg", gadm_file, mode = "wb")
+download.file("https://geodata.ucdavis.edu/cmip6/5m/ACCESS-CM2/ssp126/wc2.1_5m_tmax_ACCESS-CM2_ssp126_2081-2100.tif", tmax126_file, mode = "wb")
+download.file("https://geodata.ucdavis.edu/cmip6/5m/ACCESS-CM2/ssp585/wc2.1_5m_tmax_ACCESS-CM2_ssp585_2081-2100.tif", tmax585_file, mode = "wb")
 ```
 
-### 本地输入记录
-
-保存实际文件大小与 MD5；摘要用于识别输入版本，不能单独证明来源或分析正确性。
+### 本地文件
 
 ```{r week03-hw-check-input-files}
-if (!file.exists(gadm_file)) stop("缺少澳大利亚边界，请完成第 2.2 步。") # 明确指出缺少哪个前置输入
-if (!all(file.exists(input_manifest$path))) stop("两份未来 tmax 尚未齐全，请完成第 2.2 步。") # 防止把课堂历史温度当成替代输入
-actual_bytes <- unname(file.info(input_manifest$path)$size) # 读取本地两份文件的字节数
-if (!identical(as.numeric(actual_bytes), as.numeric(input_manifest$expected_bytes))) stop("未来温度文件大小与清单不符，请核对下载。") # 检查本地下载完整性
-tmax126_file <- input_manifest$path[input_manifest$scenario == "SSP126"] # 取得低排放情景的本地路径
-tmax585_file <- input_manifest$path[input_manifest$scenario == "SSP585"] # 取得高排放情景的本地路径
-input_record <- input_manifest %>% dplyr::mutate(bytes_on_disk = actual_bytes, md5 = unname(tools::md5sum(path))) # 记录当前输入的大小和校验值，复现记录
-print(input_record, width = Inf)
+stopifnot(all(file.exists(c(gadm_file, tmax126_file, tmax585_file))))
 ```
 
 ## 国界与坐标参考系
@@ -132,15 +74,15 @@ print(input_record, width = Inf)
 国家层为 ADM_0；EPSG:3112 用于澳大利亚显示。坐标转换使用 `st_transform()`，不以改写 CRS 标签代替转换。离岸岛屿保留在分析范围内。
 
 ```{r week03-hw-country-crs}
-country_layers <- sf::st_layers(gadm_file) # 查看 GeoPackage 内有哪些行政层
+country_layers <- sf::st_layers(gadm_file)
 print(country_layers)
-country_layer <- country_layers$name[grepl("_0$", country_layers$name)] # 选择国家级别 ADM_0，不拿州或县代替国家
-if (length(country_layer) != 1L) stop("国家层不唯一，请核对 GADM 图层列表。") # 不在多份候选中随意挑选
-aus <- sf::st_read(gadm_file, layer = country_layer, quiet = TRUE) # 读取原始澳大利亚国界
-print(sf::st_crs(aus)) # 查看原始坐标参考系
-if (is.na(sf::st_crs(aus))) stop("边界缺少 CRS，先核对原始文件，不能猜坐标系。") # 没有 CRS 时停止
-aus_3112 <- sf::st_transform(aus, 3112) # 转成澳大利亚 Lambert 投影，供制图使用
-print(sf::st_crs(aus_3112)) # 查看转换后的米制 CRS
+country_layer <- country_layers$name[grepl("_0$", country_layers$name)]
+if (length(country_layer) != 1L) stop("GADM 国家层不唯一。")
+aus <- sf::st_read(gadm_file, layer = country_layer, quiet = TRUE)
+print(sf::st_crs(aus))
+if (is.na(sf::st_crs(aus))) stop("边界缺少 CRS。")
+aus_3112 <- sf::st_transform(aus, 3112)
+print(sf::st_crs(aus_3112))
 ```
 
 ## 月份、网格与温度单位
@@ -148,46 +90,46 @@ print(sf::st_crs(aus_3112)) # 查看转换后的米制 CRS
 核对十二层 `tmax01`–`tmax12`、5/60 度分辨率、CRS 和共同网格后，月份命名为 Jan–Dec。本次 CMIP6 浮点 TIFF 已为 °C，不套用旧版 `°C×10` 规则，不再除以 10。
 
 ```{r week03-hw-read-rasters}
-tmax126 <- terra::rast(tmax126_file) # 读取 SSP126 的 GeoTIFF，先建立栅格对象
-tmax585 <- terra::rast(tmax585_file) # 读取 SSP585 的 GeoTIFF
-print(tmax126) # 查看尺寸、范围、分辨率、CRS 与波段
-print(tmax585) # 对另一个情景做相同检查
-print(names(tmax126)) # 核对原始波段应为 tmax01 到 tmax12
-print(names(tmax585)) # 确认另一个情景的月份顺序一致
-expected_bands <- sprintf("tmax%02d", 1:12) # 生成 tmax01、tmax02……tmax12 的目标名称
-stopifnot(terra::nlyr(tmax126) == 12L, terra::nlyr(tmax585) == 12L) # 两组都必须有 12 个月
-stopifnot(identical(names(tmax126), expected_bands), identical(names(tmax585), expected_bands)) # 不在月份不明时擅自改名
-stopifnot(all(abs(terra::res(tmax126) - 5 / 60) < 1e-6)) # 检查目标网格为 5 分，即约 0.083333 度
-stopifnot(nzchar(terra::crs(tmax126)), nzchar(terra::crs(tmax585))) # 两份栅格都必须有 CRS
-stopifnot(terra::compareGeom(tmax126, tmax585, lyrs = TRUE, res = TRUE, stopOnError = FALSE)) # 检查两个情景的层数、CRS、范围、行列和分辨率相同
+tmax126 <- terra::rast(tmax126_file)
+tmax585 <- terra::rast(tmax585_file)
+print(tmax126)
+print(tmax585)
+print(names(tmax126))
+print(names(tmax585))
+expected_bands <- sprintf("tmax%02d", 1:12)
+stopifnot(terra::nlyr(tmax126) == 12L, terra::nlyr(tmax585) == 12L)
+stopifnot(identical(names(tmax126), expected_bands), identical(names(tmax585), expected_bands))
+stopifnot(all(abs(terra::res(tmax126) - 5 / 60) < 1e-6))
+stopifnot(nzchar(terra::crs(tmax126)), nzchar(terra::crs(tmax585)))
+stopifnot(terra::compareGeom(tmax126, tmax585, lyrs = TRUE, res = TRUE, stopOnError = FALSE))
 print(terra::scoff(tmax126))
-print(terra::scoff(tmax585)) # 对另一情景做同样的缩放检查
-names(tmax126) <- month.abb # 已确认月份顺序后，改成 Jan 到 Dec，方便阅读
-names(tmax585) <- month.abb # 两个情景使用同一套月份列名
+print(terra::scoff(tmax585))
+names(tmax126) <- month.abb # CMIP6 浮点数据已为 °C，不再除以 10
+names(tmax585) <- month.abb
 ```
 
 ## 城市参考点
 
-课堂坐标为起点，Broome 使用南纬 -17.96；Melbourne 改用 BOM Olympic Park 086338 的 `(144.98, -37.83)`，原课堂坐标保存在 `source_lon` / `source_lat`。BOM 只提供参考位置，温度仍来自 WorldClim。十五个地点不是完整城市行政区，也不覆盖全部澳大利亚城市。
+课堂坐标中 Broome 使用南纬 -17.96；Melbourne 改用 [BOM Olympic Park](https://www.bom.gov.au/climate/averages/tables/cw_086338.shtml) 的 `(144.98, -37.83)`。原坐标保存在 `source_lon` / `source_lat`，温度来自 WorldClim。
 
 ```{r week03-hw-cities}
-cities <- tibble::tibble( # 把课堂地点名和经纬度整理成属性表
-  Site = c("Brisbane", "Melbourne", "Perth", "Sydney", "Broome", "Darwin", "Orange", "Bunbury", "Cairns", "Adelaide", "Gold Coast", "Canberra", "Newcastle", "Wollongong", "Logan City"), # 保留课堂的 15 个地点
-  lon = c(153.03, 144.96, 115.86, 151.21, 122.23, 130.84, 149.10, 115.64, 145.77, 138.60, 153.43, 149.13, 151.78, 150.89, 153.12), # 经度为东经
-  lat = c(-27.47, -37.91, -31.95, -33.87, -17.96, -12.46, -33.28, -33.33, -16.92, -34.93, -28.00, -35.28, -32.93, -34.42, -27.64) # 澳大利亚这些地点位于南半球，纬度为负
- ) %>% dplyr::mutate(city_id = dplyr::row_number()) # 加一个稳定 ID，用来与 extract() 输出连接
-cities <- cities %>% dplyr::mutate( # 保存课堂原坐标，再明确更正 Melbourne 参考点
-  source_lon = lon, source_lat = lat, # 保留修改前坐标，便于核对来源与变化
+cities <- tibble::tibble(
+  Site = c("Brisbane", "Melbourne", "Perth", "Sydney", "Broome", "Darwin", "Orange", "Bunbury", "Cairns", "Adelaide", "Gold Coast", "Canberra", "Newcastle", "Wollongong", "Logan City"),
+  lon = c(153.03, 144.96, 115.86, 151.21, 122.23, 130.84, 149.10, 115.64, 145.77, 138.60, 153.43, 149.13, 151.78, 150.89, 153.12),
+  lat = c(-27.47, -37.91, -31.95, -33.87, -17.96, -12.46, -33.28, -33.33, -16.92, -34.93, -28.00, -35.28, -32.93, -34.42, -27.64)
+ ) %>% dplyr::mutate(city_id = dplyr::row_number())
+cities <- cities %>% dplyr::mutate(
+  source_lon = lon, source_lat = lat,
   lon = dplyr::if_else(Site == "Melbourne", 144.98, lon),
-  lat = dplyr::if_else(Site == "Melbourne", -37.83, lat), # 气象局公布南纬 37.83 度；不是原表偏南的 -37.91
-  coordinate_source = dplyr::if_else(Site == "Melbourne", "BOM Melbourne Olympic Park 086338", "Course sample; Broome latitude sign corrected") # 逐行保存坐标来源
+  lat = dplyr::if_else(Site == "Melbourne", -37.83, lat),
+  coordinate_source = dplyr::if_else(Site == "Melbourne", "BOM Melbourne Olympic Park 086338", "Course sample; Broome latitude sign corrected")
 )
-gis_unique(cities, "Site") # 每个地点名只能出现一次，不用 distinct() 隐藏重复
-gis_unique(cities, "city_id") # 每个提取 ID 也只能出现一次
-stopifnot(nrow(cities) == 15L, all(cities$lat < 0), all(cities$lon > 0)) # 检查点数和经纬度符号
-city_sf <- sf::st_as_sf(cities, coords = c("lon", "lat"), crs = 4326, remove = FALSE) # 按经度、纬度的顺序创建 WGS84 点，并保留原坐标列
-city_for_raster <- sf::st_transform(city_sf, crs = terra::crs(tmax126)) # 把城市点转换到栅格实际使用的 CRS
-city_vector <- terra::vect(city_for_raster) # 从 sf 点转换为 terra 的矢量点格式
+stopifnot(!anyNA(cities$Site), !anyDuplicated(cities$Site))
+stopifnot(!anyNA(cities$city_id), !anyDuplicated(cities$city_id))
+stopifnot(nrow(cities) == 15L, all(cities$lat < 0), all(cities$lon > 0))
+city_sf <- sf::st_as_sf(cities, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+city_for_raster <- sf::st_transform(city_sf, crs = terra::crs(tmax126))
+city_vector <- terra::vect(city_for_raster)
 print(city_sf)
 ```
 
@@ -196,12 +138,12 @@ print(city_sf)
 先保留两个情景的原格提取与月份缺失记录，不把缺失转换为零或直接删去城市。
 
 ```{r week03-hw-extract-original}
-raw_extract126 <- terra::extract(tmax126, city_vector, method = "simple") # 先保留原点所在格的 SSP126 提取结果
-raw_extract585 <- terra::extract(tmax585, city_vector, method = "simple") # 同一组点、同一方法提取另一个情景
-original_missing <- tibble::tibble( # 只检查完整性，不计算温度统计结果
-  city_id = cities$city_id, Site = cities$Site, # 明确每一行对应的城市
-  missing126 = rowSums(!is.finite(as.matrix(raw_extract126[month.abb]))), # 数出 SSP126 十二月中的缺失或非有限值
-  missing585 = rowSums(!is.finite(as.matrix(raw_extract585[month.abb]))) # 对 SSP585 做相同检查
+raw_extract126 <- terra::extract(tmax126, city_vector, method = "simple")
+raw_extract585 <- terra::extract(tmax585, city_vector, method = "simple")
+original_missing <- tibble::tibble(
+  city_id = cities$city_id, Site = cities$Site,
+  missing126 = rowSums(!is.finite(as.matrix(raw_extract126[month.abb]))),
+  missing585 = rowSums(!is.finite(as.matrix(raw_extract585[month.abb])))
 )
 print(original_missing, n = Inf)
 ```
@@ -210,42 +152,42 @@ print(original_missing, n = Inf)
 
 原格二情景共 24 个值完整时保留原格；否则仅检查原格和八邻格，在中心位于澳大利亚、二情景全年完整且距参考点不超过 **15 km** 的候选中选择最近格，相同距离按格号固定排序。无合格候选则停止，不自动扩大范围。
 
-这是本地海岸取样适配，非官方唯一规定。两个情景使用同一格号；原坐标、选定格中心、格号及距离保留在 `sampling_audit`。邻格值代表城市附近格网近似，不是原点精确温度或城市平均；选择不依据温度大小。
+两个情景共用格号，取样位置与距离保存在 `sampling_audit`。邻格温度是城市附近格网的近似值。
 
 ```{r week03-hw-coastal-sampling}
-stopifnot(terra::compareGeom(tmax126, tmax585, lyrs = TRUE, res = TRUE, stopOnError = FALSE)) # 只有相同网格才能共用格号
-original_cells <- terra::cellFromXY(tmax126, terra::crds(city_vector)) # 找每个参考点原来所在的格号
-stopifnot(!anyNA(original_cells)) # 点超出栅格范围时不尝试邻格修补
-selected_cells <- original_cells # 初始保留每个原格，只为确实缺失的城市另选
-needs_neighbour <- original_missing$missing126 > 0L | original_missing$missing585 > 0L # 任一情景缺失就共同检查
-max_distance_m <- 15000 # 预先固定 15 km 上限，不根据温度结果挑距离
-land_for_sampling <- sf::st_transform(aus, crs = terra::crs(tmax126)) # 使用前面读取的原始国界核对候选格中心
-for (i in which(needs_neighbour)) { # 只处理有缺失的城市，完整城市不改变取样格
-  centre_rc <- terra::rowColFromCell(tmax126, original_cells[i]) # 将原格号换成行、列位置
-  candidate_rc <- expand.grid(row = centre_rc[1, 1] + (-1:1), col = centre_rc[1, 2] + (-1:1)) # 枚举原格和周围八个格
-  candidate_rc <- candidate_rc[candidate_rc$row >= 1 & candidate_rc$row <= nrow(tmax126) & candidate_rc$col >= 1 & candidate_rc$col <= ncol(tmax126), ] # 排除网格范围外的行列
-  candidate_cells <- terra::cellFromRowCol(tmax126, candidate_rc$row, candidate_rc$col) # 得到候选格的全局格号
-  candidate126 <- terra::extract(tmax126, candidate_cells) # 数字格号提取返回十二个月，不含 ID 列
-  candidate585 <- terra::extract(tmax585, candidate_cells) # 对完全相同的候选格提取另一个情景
-  common_complete <- rowSums(!is.finite(as.matrix(candidate126))) == 0L & rowSums(!is.finite(as.matrix(candidate585))) == 0L # 必须两情景共二十四个值完整
-  candidate_xy <- terra::xyFromCell(tmax126, candidate_cells) # 获取候选格中心的实际坐标
-  candidate_sf <- sf::st_as_sf(as.data.frame(candidate_xy), coords = c("x", "y"), crs = terra::crs(tmax126)) # 给候选中心赋予栅格已知 CRS
-  on_land <- lengths(sf::st_intersects(candidate_sf, land_for_sampling)) > 0L # 格中心还必须落在澳大利亚国界内
-  distance_m <- as.numeric(sf::st_distance(city_for_raster[i, ], candidate_sf)) # 计算原参考点到各候选中心的地理距离，单位米
-  acceptable <- common_complete & on_land & is.finite(distance_m) & distance_m <= max_distance_m # 同时满足完整、陆地和距离条件
-  if (!any(acceptable)) stop("15 km 内八邻格没有共同完整陆地候选，请核对输入与坐标：", cities$Site[i]) # 不能为了继续运行随意扩大范围或填值
-  ranked <- which(acceptable)[order(distance_m[acceptable], candidate_cells[acceptable])] # 按距离排序，相同距离再按格号固定选择
-  selected_cells[i] <- candidate_cells[ranked[1]] # 两个情景只共同选择一次格号
+stopifnot(terra::compareGeom(tmax126, tmax585, lyrs = TRUE, res = TRUE, stopOnError = FALSE))
+original_cells <- terra::cellFromXY(tmax126, terra::crds(city_vector))
+stopifnot(!anyNA(original_cells))
+selected_cells <- original_cells
+needs_neighbour <- original_missing$missing126 > 0L | original_missing$missing585 > 0L
+max_distance_m <- 15000 # 缺失点只检查 3×3 邻格，二情景共用取样格
+land_for_sampling <- sf::st_transform(aus, crs = terra::crs(tmax126))
+for (i in which(needs_neighbour)) {
+  centre_rc <- terra::rowColFromCell(tmax126, original_cells[i])
+  candidate_rc <- expand.grid(row = centre_rc[1, 1] + (-1:1), col = centre_rc[1, 2] + (-1:1))
+  candidate_rc <- candidate_rc[candidate_rc$row >= 1 & candidate_rc$row <= nrow(tmax126) & candidate_rc$col >= 1 & candidate_rc$col <= ncol(tmax126), ]
+  candidate_cells <- terra::cellFromRowCol(tmax126, candidate_rc$row, candidate_rc$col)
+  candidate126 <- terra::extract(tmax126, candidate_cells)
+  candidate585 <- terra::extract(tmax585, candidate_cells)
+  common_complete <- rowSums(!is.finite(as.matrix(candidate126))) == 0L & rowSums(!is.finite(as.matrix(candidate585))) == 0L
+  candidate_xy <- terra::xyFromCell(tmax126, candidate_cells)
+  candidate_sf <- sf::st_as_sf(as.data.frame(candidate_xy), coords = c("x", "y"), crs = terra::crs(tmax126))
+  on_land <- lengths(sf::st_intersects(candidate_sf, land_for_sampling)) > 0L
+  distance_m <- as.numeric(sf::st_distance(city_for_raster[i, ], candidate_sf))
+  acceptable <- common_complete & on_land & is.finite(distance_m) & distance_m <= max_distance_m
+  if (!any(acceptable)) stop("15 km 内没有共同有效陆地邻格：", cities$Site[i])
+  ranked <- which(acceptable)[order(distance_m[acceptable], candidate_cells[acceptable])]
+  selected_cells[i] <- candidate_cells[ranked[1]]
 }
-selected_xy <- terra::xyFromCell(tmax126, selected_cells) # 所有最终取样格中心坐标，包括保留原格的城市
-selected_sf <- sf::st_as_sf(as.data.frame(selected_xy), coords = c("x", "y"), crs = terra::crs(tmax126)) # 转成空间点计算距离
-sampling_audit <- cities %>% dplyr::select(city_id, Site, source_lon, source_lat, lon, lat, coordinate_source) %>% dplyr::mutate( # 汇总来源与实际取样位置
-  original_cell = original_cells, selected_cell = selected_cells, # 并列原格和选定格号
-  sample_lon = selected_xy[, 1], sample_lat = selected_xy[, 2], # 明确这些是格中心，不冒充城市坐标
-  neighbour_used = selected_cells != original_cells, # TRUE 表示因为海岸缺失采用了邻格
-  point_to_sample_m = as.numeric(sf::st_distance(city_for_raster, selected_sf, by_element = TRUE)) # 每个城市参考点到实际取样中心的距离
+selected_xy <- terra::xyFromCell(tmax126, selected_cells)
+selected_sf <- sf::st_as_sf(as.data.frame(selected_xy), coords = c("x", "y"), crs = terra::crs(tmax126))
+sampling_audit <- cities %>% dplyr::select(city_id, Site, source_lon, source_lat, lon, lat, coordinate_source) %>% dplyr::mutate(
+  original_cell = original_cells, selected_cell = selected_cells,
+  sample_lon = selected_xy[, 1], sample_lat = selected_xy[, 2],
+  neighbour_used = selected_cells != original_cells,
+  point_to_sample_m = as.numeric(sf::st_distance(city_for_raster, selected_sf, by_element = TRUE))
 )
-print(sampling_audit, n = Inf, width = Inf) # 核对邻格与距离
+print(sampling_audit, n = Inf, width = Inf)
 ```
 
 ### 共同格提取
@@ -253,32 +195,32 @@ print(sampling_audit, n = Inf, width = Inf) # 核对邻格与距离
 从同一格号提取两个情景十二个月，按明确城市 ID 一对一连接。后续保持十五城市完整性检查。
 
 ```{r week03-hw-extract}
-extract126 <- tibble::as_tibble(terra::extract(tmax126, selected_cells)) %>% dplyr::mutate(ID = cities$city_id, .before = 1) # 按选定格顺序读取十二月，再明确附上城市 ID
-extract585 <- tibble::as_tibble(terra::extract(tmax585, selected_cells)) %>% dplyr::mutate(ID = cities$city_id, .before = 1) # 使用同样的格号和 ID 读取 SSP585
-gis_unique(extract126, "ID") # 确认每个城市只返回一行
-gis_unique(extract585, "ID") # 对另一个情景检查相同条件
-stopifnot(setequal(cities$city_id, extract126$ID), setequal(cities$city_id, extract585$ID)) # 城市 ID 不能丢失或增加
-stopifnot(all(is.finite(as.matrix(extract126[month.abb]))), all(is.finite(as.matrix(extract585[month.abb])))) # 所选格的两个情景必须各有十二个有限值
-city126 <- dplyr::left_join(cities, extract126, by = c("city_id" = "ID"), relationship = "one-to-one") # 按明确 ID 连接，不依赖城市表当前显示顺序
-city585 <- dplyr::left_join(cities, extract585, by = c("city_id" = "ID"), relationship = "one-to-one") # 对另一个情景使用同一连接规则
+extract126 <- tibble::as_tibble(terra::extract(tmax126, selected_cells)) %>% dplyr::mutate(ID = cities$city_id, .before = 1)
+extract585 <- tibble::as_tibble(terra::extract(tmax585, selected_cells)) %>% dplyr::mutate(ID = cities$city_id, .before = 1)
+stopifnot(!anyNA(extract126$ID), !anyDuplicated(extract126$ID))
+stopifnot(!anyNA(extract585$ID), !anyDuplicated(extract585$ID))
+stopifnot(setequal(cities$city_id, extract126$ID), setequal(cities$city_id, extract585$ID))
+stopifnot(all(is.finite(as.matrix(extract126[month.abb]))), all(is.finite(as.matrix(extract585[month.abb]))))
+city126 <- dplyr::left_join(cities, extract126, by = c("city_id" = "ID"), relationship = "one-to-one")
+city585 <- dplyr::left_join(cities, extract585, by = c("city_id" = "ID"), relationship = "one-to-one")
 print(city126, width = Inf)
-print(city585, width = Inf) # 查看同一组城市的另一个情景
+print(city585, width = Inf)
 ```
 
 ## 城市—月份—情景长表
 
-位置数为 15×12×2；每个复合键唯一。任何残余 NA、非有限值或明显异常温度均停止，不降低检查标准。
+长表包含 15×12×2 行，按城市、月份和情景检查唯一性与缺失。
 
 ```{r week03-hw-long-table}
-long126 <- city126 %>% tidyr::pivot_longer(cols = dplyr::all_of(month.abb), names_to = "Month", values_to = "tmax_c") %>% dplyr::mutate(Scenario = "SSP126") # 把 Jan–Dec 十二列转为月份行，标明情景
-long585 <- city585 %>% tidyr::pivot_longer(cols = dplyr::all_of(month.abb), names_to = "Month", values_to = "tmax_c") %>% dplyr::mutate(Scenario = "SSP585") # 对另一个情景作同样整理
-city_month <- dplyr::bind_rows(long126, long585) %>% dplyr::mutate(month_no = match(Month, month.abb)) # 上下合并两个情景，并用 1–12 记录月份顺序
-stopifnot(nrow(city_month) == 15L * 12L * 2L) # 应有城市×月份×情景共 360 个位置
-stopifnot(!anyDuplicated(city_month[c("Site", "month_no", "Scenario")])) # 同一城市、月份、情景不能出现重复行
-missing_check <- city_month %>% dplyr::group_by(Site, Scenario) %>% dplyr::summarise(months = dplyr::n(), missing = sum(is.na(tmax_c)), .groups = "drop") # 逐城市、情景统计缺失数
-print(missing_check, n = Inf) # 完整查看 30 组缺失检查
-if (anyNA(city_month$tmax_c)) stop("有城市月份为 NA：先检查城市坐标、海岸像元和下载，不要把 NA 改为 0，也不要直接删掉后继续。") # 不让不完整配对悄悄进入统计
-if (any(!is.finite(city_month$tmax_c)) || any(city_month$tmax_c < -80 | city_month$tmax_c > 70)) stop("温度范围异常，请先检查变量、单位和文件版本。") # 用宽范围检查明显编码或单位问题，不能代替科学核验
+long126 <- city126 %>% tidyr::pivot_longer(cols = dplyr::all_of(month.abb), names_to = "Month", values_to = "tmax_c") %>% dplyr::mutate(Scenario = "SSP126")
+long585 <- city585 %>% tidyr::pivot_longer(cols = dplyr::all_of(month.abb), names_to = "Month", values_to = "tmax_c") %>% dplyr::mutate(Scenario = "SSP585")
+city_month <- dplyr::bind_rows(long126, long585) %>% dplyr::mutate(month_no = match(Month, month.abb))
+stopifnot(nrow(city_month) == 15L * 12L * 2L)
+stopifnot(!anyDuplicated(city_month[c("Site", "month_no", "Scenario")]))
+missing_check <- city_month %>% dplyr::group_by(Site, Scenario) %>% dplyr::summarise(months = dplyr::n(), missing = sum(is.na(tmax_c)), .groups = "drop")
+print(missing_check, n = Inf)
+if (anyNA(city_month$tmax_c)) stop("城市月份含缺失值。")
+if (any(!is.finite(city_month$tmax_c)) || any(city_month$tmax_c < -80 | city_month$tmax_c > 70)) stop("温度不在预期范围内。")
 ```
 
 ### 配对差值
@@ -286,14 +228,14 @@ if (any(!is.finite(city_month$tmax_c)) || any(city_month$tmax_c < -80 | city_mon
 城市与月份双键匹配，双向检查漏接后计算 `delta_c`。差值是两个未来情景之差，不是相对历史或当前气温的升温。
 
 ```{r week03-hw-pair-differences}
-low <- city_month %>% dplyr::filter(Scenario == "SSP126") %>% dplyr::select(Site, month_no, Month, tmax126_c = tmax_c) # 选出 SSP126，温度列改成清晰名称
-high <- city_month %>% dplyr::filter(Scenario == "SSP585") %>% dplyr::select(Site, month_no, tmax585_c = tmax_c) # 选出 SSP585，同样保留城市和月份键
-stopifnot(!anyDuplicated(low[c("Site", "month_no")]), !anyDuplicated(high[c("Site", "month_no")])) # 验证两个表中的复合连接键均唯一
-stopifnot(nrow(dplyr::anti_join(low, high, by = c("Site", "month_no"))) == 0L) # 检查 SSP126 中没有找不到 SSP585 对应的键
-stopifnot(nrow(dplyr::anti_join(high, low, by = c("Site", "month_no"))) == 0L) # 反过来再检查 SSP585 没有额外键
-paired <- dplyr::left_join(low, high, by = c("Site", "month_no"), relationship = "one-to-one") %>% dplyr::mutate(delta_c = tmax585_c - tmax126_c) # 正确配对后计算 SSP585 减 SSP126
-paired <- paired %>% dplyr::arrange(Site, month_no) # 把每个城市的十二个月按顺序排列
-stopifnot(nrow(paired) == 180L, !anyNA(paired[c("tmax126_c", "tmax585_c", "delta_c")])) # 180 对必须完整，不能丢行
+low <- city_month %>% dplyr::filter(Scenario == "SSP126") %>% dplyr::select(Site, month_no, Month, tmax126_c = tmax_c)
+high <- city_month %>% dplyr::filter(Scenario == "SSP585") %>% dplyr::select(Site, month_no, tmax585_c = tmax_c)
+stopifnot(!anyDuplicated(low[c("Site", "month_no")]), !anyDuplicated(high[c("Site", "month_no")]))
+stopifnot(nrow(dplyr::anti_join(low, high, by = c("Site", "month_no"))) == 0L)
+stopifnot(nrow(dplyr::anti_join(high, low, by = c("Site", "month_no"))) == 0L)
+paired <- dplyr::left_join(low, high, by = c("Site", "month_no"), relationship = "one-to-one") %>% dplyr::mutate(delta_c = tmax585_c - tmax126_c)
+paired <- paired %>% dplyr::arrange(Site, month_no)
+stopifnot(nrow(paired) == 180L, !anyNA(paired[c("tmax126_c", "tmax585_c", "delta_c")]))
 print(paired, n = 24, width = Inf)
 ```
 
@@ -302,36 +244,36 @@ print(paired, n = 24, width = Inf)
 每城、每情景计算十二月均值、中位数、样本标准差、四分位数、IQR 和范围。月份等权，不按天数加权；跨月 SD 描述季节离散，不代表逐年变动、模型误差或不确定性区间。四分位数采用 R type 7。
 
 ```{r week03-hw-scenario-statistics}
-city_stats <- city_month %>% dplyr::group_by(Site, Scenario) %>% dplyr::summarise( # 每个城市、每个情景各形成一组
-  n_months = dplyr::n(), # 记录使用了多少个月，正常应为 12
-  mean_c = mean(tmax_c), # 十二个月气候平均最高气温的等权平均
-  median_c = median(tmax_c), # 排序后处在中间位置的温度
-  sd_c = sd(tmax_c), # 十二个月数值的样本标准差，描述季节间离散程度
-  q1_c = unname(quantile(tmax_c, probs = 0.25, type = 7)), # 计算第 25 百分位数，明确使用 R 默认 type 7 算法
-  q3_c = unname(quantile(tmax_c, probs = 0.75, type = 7)), # 计算第 75 百分位数
-  iqr_c = IQR(tmax_c, type = 7), # 四分位距等于 Q3−Q1
-  min_c = min(tmax_c), # 十二个月气候值中的最小值
-  max_c = max(tmax_c), # 十二个月气候值中的最大值，不是极端高温纪录
-  .groups = "drop" # 计算完成后取消分组，避免后续操作意外继续按组
+city_stats <- city_month %>% dplyr::group_by(Site, Scenario) %>% dplyr::summarise(
+  n_months = dplyr::n(),
+  mean_c = mean(tmax_c),
+  median_c = median(tmax_c),
+  sd_c = sd(tmax_c),
+  q1_c = unname(quantile(tmax_c, probs = 0.25, type = 7)),
+  q3_c = unname(quantile(tmax_c, probs = 0.75, type = 7)),
+  iqr_c = IQR(tmax_c, type = 7),
+  min_c = min(tmax_c),
+  max_c = max(tmax_c),
+  .groups = "drop"
 )
-print(city_stats, n = Inf, width = Inf) # 查看所有城市、情景的统计结果
+print(city_stats, n = Inf, width = Inf)
 ```
 
 ### 每城十二月情景差
 
 ```{r week03-hw-difference-statistics}
-delta_stats <- paired %>% dplyr::group_by(Site) %>% dplyr::summarise( # 每个城市分析十二个配对月份的差值
-  n_pairs = dplyr::n(), # 保留配对数量
-  mean_delta_c = mean(delta_c), # 平均情景差，使用 SSP585−SSP126 的方向
-  median_delta_c = median(delta_c), # 十二个月情景差的中位数
-  sd_delta_c = sd(delta_c), # 情景差随月份变化的离散程度
-  q1_delta_c = unname(quantile(delta_c, 0.25, type = 7)), # 差值的下四分位数
-  q3_delta_c = unname(quantile(delta_c, 0.75, type = 7)), # 差值的上四分位数
-  iqr_delta_c = IQR(delta_c, type = 7), # 中间 50% 月份差值的跨度
-  min_delta_c = min(delta_c), # 差值最小的月份对应的差
-  max_delta_c = max(delta_c), # 差值最大的月份对应的差
-  .groups = "drop" # 返回普通表
-) %>% dplyr::arrange(dplyr::desc(mean_delta_c)) # 仅为阅读方便，按平均情景差降序排列
+delta_stats <- paired %>% dplyr::group_by(Site) %>% dplyr::summarise(
+  n_pairs = dplyr::n(),
+  mean_delta_c = mean(delta_c),
+  median_delta_c = median(delta_c),
+  sd_delta_c = sd(delta_c),
+  q1_delta_c = unname(quantile(delta_c, 0.25, type = 7)),
+  q3_delta_c = unname(quantile(delta_c, 0.75, type = 7)),
+  iqr_delta_c = IQR(delta_c, type = 7),
+  min_delta_c = min(delta_c),
+  max_delta_c = max(delta_c),
+  .groups = "drop"
+) %>% dplyr::arrange(dplyr::desc(mean_delta_c))
 print(delta_stats, n = Inf, width = Inf)
 ```
 
@@ -340,10 +282,10 @@ print(delta_stats, n = Inf, width = Inf)
 完整等权配对下，均值之差等于差值均值；中位数之差与差值中位数是不同指标。
 
 ```{r week03-hw-statistic-comparison}
-comparison <- city_stats %>% dplyr::select(Site, Scenario, mean_c, median_c, sd_c, q1_c, q3_c) %>% tidyr::pivot_wider(names_from = Scenario, values_from = c(mean_c, median_c, sd_c, q1_c, q3_c)) # 将两个情景的同类统计并排展示
-comparison <- comparison %>% dplyr::mutate(mean_difference_c = mean_c_SSP585 - mean_c_SSP126, median_difference_c = median_c_SSP585 - median_c_SSP126) # 计算平均数之差与中位数之差
-comparison <- dplyr::left_join(comparison, delta_stats, by = "Site", relationship = "one-to-one") # 把逐月配对差值的统计并入比较表
-stopifnot(isTRUE(all.equal(comparison$mean_difference_c, comparison$mean_delta_c, tolerance = 1e-8))) # 验证两种平均差算法一致，允许浮点数的极小误差
+comparison <- city_stats %>% dplyr::select(Site, Scenario, mean_c, median_c, sd_c, q1_c, q3_c) %>% tidyr::pivot_wider(names_from = Scenario, values_from = c(mean_c, median_c, sd_c, q1_c, q3_c))
+comparison <- comparison %>% dplyr::mutate(mean_difference_c = mean_c_SSP585 - mean_c_SSP126, median_difference_c = median_c_SSP585 - median_c_SSP126)
+comparison <- dplyr::left_join(comparison, delta_stats, by = "Site", relationship = "one-to-one")
+stopifnot(isTRUE(all.equal(comparison$mean_difference_c, comparison$mean_delta_c, tolerance = 1e-8)))
 print(comparison, n = Inf, width = Inf)
 ```
 
@@ -352,15 +294,15 @@ print(comparison, n = Inf, width = Inf)
 城市等权样本不代表全国人口或面积加权气温；十二个气候月份也不作为独立随机天气观测。
 
 ```{r week03-hw-monthly-statistics}
-month_stats <- paired %>% dplyr::group_by(month_no, Month) %>% dplyr::summarise( # 每个月比较相同 15 个城市
-  n_cities = dplyr::n(), # 记录每月参与的城市数
-  mean_delta_c = mean(delta_c), # 城市样本等权平均的情景差
-  median_delta_c = median(delta_c), # 城市情景差的中位数
-  sd_delta_c = sd(delta_c), # 描述同月不同城市之间的差异
-  q1_delta_c = unname(quantile(delta_c, 0.25, type = 7)), # 城市差值的第 25 百分位数
-  q3_delta_c = unname(quantile(delta_c, 0.75, type = 7)), # 城市差值的第 75 百分位数
-  .groups = "drop" # 取消分组
-) %>% dplyr::arrange(month_no) # 按 1–12 月排序
+month_stats <- paired %>% dplyr::group_by(month_no, Month) %>% dplyr::summarise(
+  n_cities = dplyr::n(),
+  mean_delta_c = mean(delta_c),
+  median_delta_c = median(delta_c),
+  sd_delta_c = sd(delta_c),
+  q1_delta_c = unname(quantile(delta_c, 0.25, type = 7)),
+  q3_delta_c = unname(quantile(delta_c, 0.75, type = 7)),
+  .groups = "drop"
+) %>% dplyr::arrange(month_no)
 print(month_stats, n = Inf, width = Inf)
 ```
 
@@ -369,18 +311,18 @@ print(month_stats, n = Inf, width = Inf)
 先按矩形 crop，再以原始国界 mask。分析边界不简化；两情景网格一致后逐格相减，再对十二个月等权平均，未计算全国面积加权均值。
 
 ```{r week03-hw-crop-mask}
-aus_for_raster <- sf::st_transform(aus, crs = terra::crs(tmax126)) # 将原始国家边界转换到气温栅格 CRS
-aus_vector <- terra::vect(aus_for_raster) # 转成 terra 可接受的矢量边界
-crop126 <- terra::crop(tmax126, aus_vector) # 先按国家外包矩形裁剪 SSP126，减少处理范围
-crop585 <- terra::crop(tmax585, aus_vector) # 在相同网格上裁剪 SSP585
-mask126 <- terra::mask(crop126, aus_vector) # 把国家边界外的格子设置为 NA
-mask585 <- terra::mask(crop585, aus_vector) # 对 SSP585 使用同一原始边界遮罩
-stopifnot(terra::compareGeom(mask126, mask585, lyrs = TRUE, res = TRUE, stopOnError = FALSE)) # 再次确认处理后两个网格对应
-delta_raster <- mask585 - mask126 # 逐像元、逐月份计算情景差值，不改变原始输入
-names(delta_raster) <- month.abb # 保留差值栅格的月份含义
-mean_delta_raster <- terra::app(delta_raster, fun = mean, na.rm = FALSE) # 每个像元取十二个月情景差的等权平均
+aus_for_raster <- sf::st_transform(aus, crs = terra::crs(tmax126))
+aus_vector <- terra::vect(aus_for_raster)
+crop126 <- terra::crop(tmax126, aus_vector)
+crop585 <- terra::crop(tmax585, aus_vector)
+mask126 <- terra::mask(crop126, aus_vector)
+mask585 <- terra::mask(crop585, aus_vector)
+stopifnot(terra::compareGeom(mask126, mask585, lyrs = TRUE, res = TRUE, stopOnError = FALSE))
+delta_raster <- mask585 - mask126
+names(delta_raster) <- month.abb
+mean_delta_raster <- terra::app(delta_raster, fun = mean, na.rm = FALSE)
 names(mean_delta_raster) <- "mean_delta_c"
-print(mean_delta_raster) # 核对结果仍有 CRS、范围和温度差含义
+print(mean_delta_raster)
 ```
 
 ## 图表
@@ -390,38 +332,38 @@ print(mean_delta_raster) # 核对结果仍有 CRS、范围和温度差含义
 ### 月曲线
 
 ```{r week03-hw-seasonal-plot, fig.height=10}
-seasonal_plot <- ggplot2::ggplot(city_month, ggplot2::aes(x = month_no, y = tmax_c, colour = Scenario, group = Scenario)) + # 横轴月份、纵轴温度，按情景连线
-  ggplot2::geom_line(linewidth = 0.6) + # 画每个情景的季节曲线
-  ggplot2::geom_point(size = 1) + # 标出每月的真实提取值
-  ggplot2::facet_wrap(~ Site, ncol = 3) + # 每个城市一格，保持可比的公共纵轴
-  ggplot2::scale_x_continuous(breaks = c(1, 4, 7, 10, 12), labels = month.abb[c(1, 4, 7, 10, 12)]) + # 只标部分月份避免拥挤
-  ggplot2::scale_colour_manual(values = c(SSP126 = "#2166AC", SSP585 = "#B2182B")) + # 给两个情景固定颜色
-  ggplot2::labs(title = "Monthly maximum temperature at 15 Australian sample locations", subtitle = "ACCESS-CM2, 2081–2100, 5 arc-minutes", x = "Month", y = "Monthly mean maximum temperature (°C)", colour = "Scenario") + # 写清变量、模型、时期和单位
-  ggplot2::theme_minimal(base_size = 11) # 使用清晰的基本主题
+seasonal_plot <- ggplot2::ggplot(city_month, ggplot2::aes(x = month_no, y = tmax_c, colour = Scenario, group = Scenario)) +
+  ggplot2::geom_line(linewidth = 0.6) +
+  ggplot2::geom_point(size = 1) +
+  ggplot2::facet_wrap(~ Site, ncol = 3) +
+  ggplot2::scale_x_continuous(breaks = c(1, 4, 7, 10, 12), labels = month.abb[c(1, 4, 7, 10, 12)]) +
+  ggplot2::scale_colour_manual(values = c(SSP126 = "#2166AC", SSP585 = "#B2182B")) +
+  ggplot2::labs(title = "Monthly maximum temperature at 15 Australian sample locations", subtitle = "ACCESS-CM2, 2081–2100, 5 arc-minutes", x = "Month", y = "Monthly mean maximum temperature (°C)", colour = "Scenario") +
+  ggplot2::theme_minimal(base_size = 11)
 print(seasonal_plot)
 ```
 
 ### 城市差值箱线图
 
 ```{r week03-hw-difference-boxplot, fig.height=7}
-box_plot <- ggplot2::ggplot(paired, ggplot2::aes(x = reorder(Site, delta_c, FUN = median), y = delta_c)) + # 按城市差值中位数排列
-  ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") + # 以零线标明两个情景没有差异的位置
-  ggplot2::geom_boxplot(fill = "#ABD9E9", outlier.shape = NA) + # 用箱体显示中位数、四分位数和须
-  ggplot2::geom_jitter(width = 0.12, height = 0, size = 1.1, alpha = 0.65) + # 展示每个城市十二个月的差值，避免只见箱体
-  ggplot2::coord_flip() + # 横置城市名，防止重叠
-  ggplot2::labs(title = "Monthly scenario differences by city", subtitle = "Each city has 12 paired climatological months; ACCESS-CM2, 2081–2100", x = NULL, y = "SSP585 − SSP126 (°C)") + # 把差值方向写在轴上
-  ggplot2::theme_minimal(base_size = 11) # 统一图表主题
+box_plot <- ggplot2::ggplot(paired, ggplot2::aes(x = reorder(Site, delta_c, FUN = median), y = delta_c)) +
+  ggplot2::geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  ggplot2::geom_boxplot(fill = "#ABD9E9", outlier.shape = NA) +
+  ggplot2::geom_jitter(width = 0.12, height = 0, size = 1.1, alpha = 0.65) +
+  ggplot2::coord_flip() +
+  ggplot2::labs(title = "Monthly scenario differences by city", subtitle = "Each city has 12 paired climatological months; ACCESS-CM2, 2081–2100", x = NULL, y = "SSP585 − SSP126 (°C)") +
+  ggplot2::theme_minimal(base_size = 11)
 print(box_plot)
 ```
 
 ### 城市—月份差值分布
 
 ```{r week03-hw-difference-histogram}
-hist_plot <- ggplot2::ggplot(paired, ggplot2::aes(x = delta_c)) + # 使用全部城市与月份的 180 个配对差值
-  ggplot2::geom_histogram(bins = 20, fill = "#FDAE61", colour = "white") + # 将差值分成 20 个区间并数频数
-  ggplot2::geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") + # 标出零差值
-  ggplot2::labs(title = "Distribution of city–month scenario differences", subtitle = "15 selected locations × 12 climatological months; no independence assumption", x = "SSP585 − SSP126 (°C)", y = "Number of city–month pairs") + # 明确横轴单位与纵轴的计数对象
-  ggplot2::theme_minimal(base_size = 11) # 使用相同的图表主题
+hist_plot <- ggplot2::ggplot(paired, ggplot2::aes(x = delta_c)) +
+  ggplot2::geom_histogram(bins = 20, fill = "#FDAE61", colour = "white") +
+  ggplot2::geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  ggplot2::labs(title = "Distribution of city–month scenario differences", subtitle = "15 selected locations × 12 climatological months; no independence assumption", x = "SSP585 − SSP126 (°C)", y = "Number of city–month pairs") +
+  ggplot2::theme_minimal(base_size = 11)
 print(hist_plot)
 ```
 
@@ -430,74 +372,46 @@ print(hist_plot)
 栅格和城市点使用共同色标范围；国界仅为显示按 1000 米容差简化。地图显示投影不改变提取使用的原始网格。
 
 ```{r week03-hw-map, fig.height=8}
-city_result_sf <- dplyr::left_join(city_sf, delta_stats, by = "Site", relationship = "one-to-one") # 按地点名把城市差值统计接到点几何
-city_result_3112 <- sf::st_transform(city_result_sf, 3112) # 城市点转成和显示边界一致的投影
-aus_display <- sf::st_simplify(aus_3112, dTolerance = 1000, preserveTopology = TRUE) # 只为显示按 1000 米容差简化，分析掩膜未使用这份简化边界
-map_min <- terra::global(mean_delta_raster, fun = "min", na.rm = TRUE)[1, 1] # 获取国家差值图的最小值，用于统一图例范围
-map_max <- terra::global(mean_delta_raster, fun = "max", na.rm = TRUE)[1, 1] # 获取国家差值图的最大值
-map_limits <- range(c(map_min, map_max, city_result_3112$mean_delta_c)) # 国家栅格和城市点共用完整的颜色范围
-tmap::tmap_mode("plot") # 使用静态地图，方便在 Plots 中查看和导出
-result_map <- tmap::tm_shape(mean_delta_raster, crs = 3112) + # 把十二个月平均情景差作为地图底图，以澳大利亚投影显示
-  tmap::tm_raster(col = "mean_delta_c", col.scale = tmap::tm_scale_continuous(values = "brewer.yl_or_rd", limits = map_limits), col.legend = tmap::tm_legend(title = "Grid: mean ΔT (°C)")) + # 用共同范围的连续色带表示像元情景差
-  tmap::tm_shape(aus_display) + # 在栅格上叠加简化后的显示边界
-  tmap::tm_borders(col = "grey30", lwd = 0.6) + # 画出国界，不盖住栅格
-  tmap::tm_shape(city_result_3112) + # 再叠加城市采样点
-  tmap::tm_dots(fill = "mean_delta_c", fill.scale = tmap::tm_scale_continuous(values = "brewer.yl_or_rd", limits = map_limits), fill.legend = tmap::tm_legend(title = "Cities: mean ΔT (°C)"), size = 0.35) + # 城市点使用相同颜色范围，避免图例各自伸缩
-  tmap::tm_title("SSP585 − SSP126: ACCESS-CM2, 2081–2100") + # 标明差值方向、模型和时期
-  tmap::tm_layout(frame = FALSE) # 去掉外框，让显示更简洁
+city_result_sf <- dplyr::left_join(city_sf, delta_stats, by = "Site", relationship = "one-to-one")
+city_result_3112 <- sf::st_transform(city_result_sf, 3112)
+aus_display <- sf::st_simplify(aus_3112, dTolerance = 1000, preserveTopology = TRUE)
+map_min <- terra::global(mean_delta_raster, fun = "min", na.rm = TRUE)[1, 1]
+map_max <- terra::global(mean_delta_raster, fun = "max", na.rm = TRUE)[1, 1]
+map_limits <- range(c(map_min, map_max, city_result_3112$mean_delta_c))
+tmap::tmap_mode("plot")
+result_map <- tmap::tm_shape(mean_delta_raster, crs = 3112) +
+  tmap::tm_raster(col = "mean_delta_c", col.scale = tmap::tm_scale_continuous(values = "brewer.yl_or_rd", limits = map_limits), col.legend = tmap::tm_legend(title = "Grid: mean ΔT (°C)")) +
+  tmap::tm_shape(aus_display) +
+  tmap::tm_borders(col = "grey30", lwd = 0.6) +
+  tmap::tm_shape(city_result_3112) +
+  tmap::tm_dots(fill = "mean_delta_c", fill.scale = tmap::tm_scale_continuous(values = "brewer.yl_or_rd", limits = map_limits), fill.legend = tmap::tm_legend(title = "Cities: mean ΔT (°C)"), size = 0.35) +
+  tmap::tm_title("SSP585 − SSP126: ACCESS-CM2, 2081–2100") +
+  tmap::tm_layout(frame = FALSE)
 print(result_map)
 ```
 
 ## 可选导出
 
-每次建立新的时间戳目录，保留旧结果；CSV 记录输入、取样审计、配对值和统计，PNG 使用 ragg。`week03/outputs/` 及原始数据保持本地。
+表格和图片保存到带运行时间的 `week03/outputs/` 子目录。
 
 ```{r week03-hw-export, eval=FALSE}
-stamp <- format(Sys.time(), "%Y%m%d-%H%M%S") # 用实际运行时间创建新结果目录名
-output_dir <- file.path(root, "week03/outputs", paste0("homework-access-cm2-", stamp)) # 所有本次结果统一放到一个目录
-if (dir.exists(output_dir)) stop("已有同名运行目录，请等一秒后重新运行或改名。") # 不覆盖同一时间戳的旧结果
-dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) # 创建本次输出目录
-write_new_csv <- function(x, filename) { # 定义只写新文件的 CSV 保存函数
-  target <- file.path(output_dir, filename) # 为本次结果拼接路径
-  if (file.exists(target)) stop("不覆盖已有文件：", target) # 同名文件已存在时停止
-  readr::write_csv(x, target) # 保存表格，不写多余行号
-}
-write_new_csv(input_record, "input-sources-and-checksums.csv") # 保存真实来源、文件名和校验记录
-write_new_csv(cities, "city-coordinate-source-sample.csv") # 保存城市原坐标、更正参考坐标和来源
-write_new_csv(sampling_audit, "coastal-sampling-audit.csv") # 保存共同格号、邻格使用标记和点到格中心距离
-write_new_csv(paired, "paired-city-month-temperatures.csv") # 保存两个情景及逐月配对差值，供本地复查
-write_new_csv(city_stats, "city-scenario-descriptive-statistics.csv") # 保存每城、每情景的描述统计
-write_new_csv(delta_stats, "city-difference-descriptive-statistics.csv") # 保存每城差值的描述统计
-write_new_csv(comparison, "scenario-statistic-comparison.csv") # 保存两个情景的统计并列比较
-write_new_csv(month_stats, "monthly-city-sample-difference-statistics.csv") # 保存逐月城市样本统计
+stamp <- format(Sys.time(), "%Y%m%d-%H%M%S")
+output_dir <- file.path(root, "week03/outputs", paste0("homework-access-cm2-", stamp))
+if (dir.exists(output_dir)) stop("已有同名运行目录，请等一秒后重新运行或改名。")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+readr::write_csv(cities, file.path(output_dir, "city-coordinate-source-sample.csv"))
+readr::write_csv(sampling_audit, file.path(output_dir, "coastal-sampling-audit.csv"))
+readr::write_csv(paired, file.path(output_dir, "paired-city-month-temperatures.csv"))
+readr::write_csv(city_stats, file.path(output_dir, "city-scenario-descriptive-statistics.csv"))
+readr::write_csv(delta_stats, file.path(output_dir, "city-difference-descriptive-statistics.csv"))
+readr::write_csv(comparison, file.path(output_dir, "scenario-statistic-comparison.csv"))
+readr::write_csv(month_stats, file.path(output_dir, "monthly-city-sample-difference-statistics.csv"))
 ggplot2::ggsave(file.path(output_dir, "seasonal-scenario-curves.png"), plot = seasonal_plot, device = ragg::agg_png, width = 10, height = 12, units = "in", dpi = 150)
-ggplot2::ggsave(file.path(output_dir, "city-difference-boxplot.png"), plot = box_plot, device = ragg::agg_png, width = 9, height = 7, units = "in", dpi = 150) # 保存箱线图
-ggplot2::ggsave(file.path(output_dir, "city-month-difference-histogram.png"), plot = hist_plot, device = ragg::agg_png, width = 9, height = 6, units = "in", dpi = 150) # 保存直方图
-tmap::tmap_save(result_map, filename = file.path(output_dir, "australia-scenario-difference-map.png"), device = ragg::agg_png, width = 9, height = 8, units = "in", dpi = 150) # 保存 tmap 结果图，不导出完整原始气候数据
-writeLines(capture.output(sessionInfo()), file.path(output_dir, "session-info.txt")) # 记录本次实际 R 与包版本
-saved_files <- list.files(output_dir, full.names = TRUE) # 列出本次实际生成的文件
-stopifnot(length(saved_files) == 13L, all(file.info(saved_files)$size > 0)) # 核对 8 张 CSV、4 张 PNG 和版本记录确实存在且非空
+ggplot2::ggsave(file.path(output_dir, "city-difference-boxplot.png"), plot = box_plot, device = ragg::agg_png, width = 9, height = 7, units = "in", dpi = 150)
+ggplot2::ggsave(file.path(output_dir, "city-month-difference-histogram.png"), plot = hist_plot, device = ragg::agg_png, width = 9, height = 6, units = "in", dpi = 150)
+tmap::tmap_save(result_map, filename = file.path(output_dir, "australia-scenario-difference-map.png"), device = ragg::agg_png, width = 9, height = 8, units = "in", dpi = 150)
+writeLines(capture.output(sessionInfo()), file.path(output_dir, "session-info.txt"))
+saved_files <- list.files(output_dir, full.names = TRUE)
+stopifnot(length(saved_files) == 12L, all(file.info(saved_files)$size > 0))
 print(saved_files)
 ```
-
-## 报告与使用范围
-
-从新 R 会话 Knit 生成 HTML。安装、下载、导出三块继续保持各自 `eval=FALSE`。结果解释需对应同一输入版本和取样审计，保留单模型、有限城市点、海岸邻格近似、月气候平均与等权统计的限制。
-
-WorldClim 和 GADM 允许学术及其他非商业使用；原始数据重新分发或商业使用需要许可。原始栅格、边界和详细提取表保留本地，发布范围按来源许可核对。
-
-## 来源与改编
-
-- [官方第 3 章 Homework](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html#homework-2)
-- [WorldClim CMIP6 说明](https://www.worldclim.org/data/cmip6/cmip6climate.html)
-- [5 分下载表](https://www.worldclim.org/data/cmip6/cmip6_clim5m.html)
-- [SSP126：下载 tmax GeoTIFF](https://geodata.ucdavis.edu/cmip6/5m/ACCESS-CM2/ssp126/wc2.1_5m_tmax_ACCESS-CM2_ssp126_2081-2100.tif)
-- [SSP585：下载 tmax GeoTIFF](https://geodata.ucdavis.edu/cmip6/5m/ACCESS-CM2/ssp585/wc2.1_5m_tmax_ACCESS-CM2_ssp585_2081-2100.tif)
-- [GADM 澳大利亚 GeoPackage](https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_AUS.gpkg)
-- [澳大利亚气象局 Melbourne Olympic Park 086338](https://www.bom.gov.au/climate/averages/tables/cw_086338.shtml)
-- [terra 官方提取说明](https://rspatial.github.io/terra/reference/extract.html)
-- [GADM 国家下载](https://gadm.org/download_country.html)
-- [WorldClim 许可](https://www.worldclim.org/about.html)
-- [GADM 许可](https://gadm.org/license.html)
-
-中文整理与代码适配使用 AI 辅助；原作者、许可及改编范围见[来源与改编范围](../来源与改编范围.md)。
