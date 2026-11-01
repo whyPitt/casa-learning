@@ -1,0 +1,239 @@
+---
+title: "CASA0005 第二周：R、数据整理、连接与长宽表"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+按[官方第 2 章](https://andrewmaclachlan.github.io/CASA0005repo/introduction-to-r.html)顺序整理R、表格整理与长宽转换。打开课程 `casa0005.Rproj`，代码按顺序运行；Knit 从头计算普通分析块；安装、导出与可选联网分支单独执行。
+
+来源：MacLachlan、Dennett、Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与适配经 AI 辅助，见[改编范围](../来源与改编范围.md)；源版本 `0b19a3339034e3bd3de1e8246559d453301f07eb`。
+
+```{r setup, include=FALSE, eval=TRUE}
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+```
+
+## 2.4 R 基础
+
+使用课程项目与共用路径工具。
+
+```{r tools}
+helper <- c("tutorial-tools.R", "../tutorial-tools.R")
+source(helper[file.exists(helper)][1])
+gis_packages(c("tidyverse", "sf", "janitor", "tmap"))
+library(tidyverse)
+library(sf)
+library(tmap)
+root <- gis_root()
+```
+
+## 计算与赋值
+
+运算遵循优先级；赋值保存当前结果，修改输入不会自动重算已有对象。
+
+```{r basics}
+getwd()
+1 + 5
+4 * 5^2
+A <- 1
+B <- 2
+C <- A + B
+C
+ls()
+rm(A)
+```
+
+## 向量、表格与索引
+
+`[行, 列]` 取子集；`$` 和 `[[ ]]` 取列向量。`rnorm()` 的结果随运行变化。
+
+```{r plots-and-data-frames}
+Data1 <- c(1:100)
+Data2 <- c(101:200)
+plot(Data1, Data2, col = "red")
+Data3 <- rnorm(100, mean = 53, sd = 34)
+Data4 <- rnorm(100, mean = 64, sd = 14)
+plot(Data3, Data4, col = "blue")
+df <- data.frame(Data1, Data2)
+plot(df, col = "green")
+head(df)
+tail(df)
+df[1:10, 1]
+df[5:15, ]
+df[c(2, 3, 6), 2]
+df[, 1]
+df <- dplyr::rename(df, column1 = Data1, column2 = Data2)
+dplyr::select(df, column1)
+df$column1
+df[["column1"]]
+```
+
+## 2.5 数据读取与类型
+
+Ward Profiles 使用 latin1；`problems()` 检查解析，NA 保持缺失含义。教材的 Excel 分支是在副本中清除 `#VALUE!`、`n/a` 后保存 CSV，主线采用下方 R 导入。
+
+```{r read-and-inspect}
+ward_file <- gis_file("data/raw/london/attributes/ward-profiles-excel-version.csv")
+LondonData <- readr::read_csv(ward_file, locale = locale(encoding = "latin1"),
+                              na = c("", "NA", "n/a"), show_col_types = FALSE)
+type_table <- tibble(variable = names(LondonData),
+                     type = vapply(LondonData, function(x) paste(class(x), collapse = "/"), character(1)))
+type_table
+readr::problems(LondonData)
+names(LondonData)
+summary(LondonData)
+```
+
+## 筛选与寿命指标
+
+按 E09 地区代码筛选 borough，只去整行完全重复记录。男女寿命简单平均后与历史基准 81.16 年比较；不是人口加权指标。
+
+```{r select-and-clean}
+LondonBoroughs <- LondonData %>%
+  filter(stringr::str_detect(`New code`, "^E09")) %>%
+  distinct() %>%
+  dplyr::rename(Borough = `Ward name`) %>%
+  janitor::clean_names()
+gis_unique(LondonBoroughs, "new_code")
+LondonBoroughs %>% dplyr::select(contains("expectancy"), borough)
+Life_expectancy <- LondonBoroughs %>%
+  mutate(averagelifeexpectancy = (female_life_expectancy_2009_13 + male_life_expectancy_2009_13) / 2,
+         normalisedlifeexpectancy = averagelifeexpectancy / mean(averagelifeexpectancy, na.rm = TRUE)) %>%
+  dplyr::select(new_code, borough, averagelifeexpectancy, normalisedlifeexpectancy) %>%
+  arrange(desc(normalisedlifeexpectancy))
+slice_head(Life_expectancy, n = 5)
+slice_tail(Life_expectancy, n = 5)
+Life_expectancy2 <- Life_expectancy %>%
+  mutate(UKdiff = averagelifeexpectancy - 81.16,
+         UKcompare = case_when(is.na(UKdiff) ~ NA_character_,
+                               UKdiff > 0 ~ "above UK average", TRUE ~ "at or below UK average"))
+Life_expectancy2 %>% group_by(UKcompare) %>%
+  summarise(count = n(), range = max(UKdiff) - min(UKdiff), mean = mean(UKdiff), .groups = "drop")
+Life_expectancy3 <- Life_expectancy2 %>%
+  mutate(across(where(is.numeric), ~round(.x, 3)),
+         UKdiff_rounded = round(UKdiff, 0)) %>%
+  count(UKcompare, UKdiff_rounded)
+Life_expectancy3
+Life_expectancy4 <- Life_expectancy2
+```
+
+## 属性散点图
+
+横轴为男性预期寿命，纵轴为儿童肥胖率；图形描述关联。
+
+```{r scatter}
+plot(LondonBoroughs$male_life_expectancy_2009_13,
+     LondonBoroughs$percent_children_in_reception_year_who_are_obese_2011_12_to_2013_14)
+```
+
+## 边界与属性连接
+
+代码键保持一地区一行；`left_join` 保留伦敦边界，`inner_join` 保留两侧匹配地区。
+
+```{r boundary-and-joins}
+EW <- st_read(gis_file("data/raw/london/boundaries/lad_dec_2015_gb_bfc/LAD_Dec_2015_FCB_GB.shp"), quiet = TRUE) %>%
+  janitor::clean_names()
+LondonMap <- EW %>% filter(str_detect(lad15cd, "^E09"))
+gis_unique(LondonMap, "lad15cd")
+
+dplyr::anti_join(st_drop_geometry(LondonMap), LondonBoroughs, by = c("lad15cd" = "new_code"))
+BoroughDataMap <- left_join(LondonMap, LondonBoroughs,
+                            by = c("lad15cd" = "new_code"), relationship = "one-to-one")
+Life_expectancy4map <- inner_join(EW, Life_expectancy4,
+                                 by = c("lad15cd" = "new_code"), relationship = "one-to-one")
+stopifnot(nrow(BoroughDataMap) == nrow(LondonMap))
+```
+
+## JSA 静态地图
+
+JSA 字段是领取率；与数量区分。
+
+```{r static-jsa}
+tmap_mode("plot")
+jsa <- "rate_of_job_seekers_allowance_jsa_claimants_2015"
+gis_columns(BoroughDataMap, jsa)
+jsa_map <- tm_shape(BoroughDataMap) +
+  tm_polygons(fill = jsa, fill.scale = tm_scale_intervals(style = "jenks", values = "brewer.bu_pu")) +
+  tm_title("Job seekers' allowance claimants") + tm_compass() + tm_scalebar()
+jsa_map
+```
+
+## 栅格底图分支
+
+需要网络、OpenStreetMap 包及相应 Java 依赖；失败时可使用下一块交互底图。
+
+```{r optional-original-raster-basemap, eval=FALSE}
+gis_packages("tmaptools")
+tmaplondon <- tmaptools::read_osm(st_bbox(BoroughDataMap), type = "esri", zoom = NULL)
+tmap_mode("plot")
+tm_shape(tmaplondon) + tm_rgb() +
+  tm_shape(BoroughDataMap) +
+  tm_polygons(fill = jsa, fill_alpha = 0.5,
+              fill.scale = tm_scale_intervals(style = "jenks", values = "brewer.bu_pu")) +
+  tm_compass() + tm_scalebar() + tm_title("Job seekers' allowance claimants")
+```
+
+## 交互地图
+
+转为 EPSG:4326，并叠加 OpenStreetMap 在线底图。
+
+```{r interactive-jsa}
+tmap_mode("view")
+tm_shape(st_transform(BoroughDataMap, 4326)) +
+  tm_polygons(fill = jsa, fill_alpha = 0.5) + tm_basemap("OpenStreetMap")
+```
+
+## 寿命差值图
+
+`UKdiff` 单位为寿命年数差，正值高于教材基准。
+
+```{r life-difference-map}
+tmap_mode("plot")
+tm_shape(Life_expectancy4map) +
+  tm_polygons(fill = "UKdiff", fill.scale = tm_scale_intervals(values = "brewer.rd_bu")) +
+  tm_title("Life expectancy difference from tutorial UK baseline")
+```
+
+## 2.6 长宽表转换
+
+使用 `fly-tipping-long.csv`，不使用第一周中文透视宽表。数值含千位逗号和 `:` 缺失占位；`fly_parsing_problems` 在整理前保存。长表一行是地区×年度×指标，八种指标不互相混称。
+
+```{r tidy-long-wide}
+fly_file <- gis_file("data/raw/london/attributes/fly-tipping-long.csv")
+measures <- c("total_incidents", "total_action_taken", "warning_letters", "fixed_penalty_notices",
+              "statutory_notices", "formal_cautions", "injunctions", "prosecutions")
+fly_types <- readr::cols(code = col_character(), area = col_character(), year = col_character(),
+  total_incidents = col_number(), total_action_taken = col_number(), warning_letters = col_number(),
+  fixed_penalty_notices = col_number(), statutory_notices = col_number(), formal_cautions = col_number(),
+  injunctions = col_number(), prosecutions = col_number())
+flytipping <- read_csv(fly_file, col_types = fly_types)
+fly_parsing_problems <- readr::problems(flytipping)
+fly_parsing_problems
+names(flytipping)
+gis_columns(flytipping, c("code", "area", "year", measures))
+flytipping <- flytipping %>% mutate(year = as.character(year))
+stopifnot(!anyDuplicated(flytipping[c("code", "year")]))
+flytipping_long <- flytipping %>% pivot_longer(all_of(measures), names_to = "tipping_type", values_to = "count")
+flytipping_wide <- flytipping_long %>%
+  pivot_wider(id_cols = c(code, area), names_from = c(year, tipping_type), names_sep = "_", values_from = count)
+widefly <- flytipping %>% dplyr::select(code, area, year, total_incidents) %>%
+  pivot_wider(names_from = year, values_from = total_incidents)
+stopifnot(nrow(flytipping_long) == nrow(flytipping) * length(measures))
+head(flytipping_long)
+head(flytipping_wide)
+```
+
+## Homework 与阅读
+
+华盛顿州 Science 县级人数加权比较见 [homework.Rmd](homework.Rmd)；现成百分比采用 tested 分母，作业按 expected 重算并报告 DAT 排除。
+
+[Week 2 quiz](https://moodle.ucl.ac.uk/mod/resource/view.php?id=9275869) 附答案；`case_when()` 可直接用于向量，并非只能放在 mutate 中。阅读：Geocomputation with R 第 2 章。课堂结果见 [运行记录](../README.md)。
+
+## 资料链接
+
+- [官方第2章](https://andrewmaclachlan.github.io/CASA0005repo/introduction-to-r.html)
+- [Week 2 quiz Word文档](https://moodle.ucl.ac.uk/mod/resource/view.php?id=9275869)

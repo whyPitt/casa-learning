@@ -1,0 +1,73 @@
+---
+title: "CASA0005 第四周：Git、GitHub 与可复现 R Markdown"
+output:
+  html_document:
+    toc: true
+editor_options: 
+  chunk_output_type: console
+---
+
+按[官方第 4 章](https://andrewmaclachlan.github.io/CASA0005repo/git-github-and-rmarkdown.html)顺序整理Git、GitHub 与 R Markdown。打开课程 `casa0005.Rproj`，代码按顺序运行；Knit 从头计算普通分析块；安装、导出与可选联网分支单独执行。
+
+来源：MacLachlan、Dennett、Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与适配经 AI 辅助，见[改编范围](../来源与改编范围.md)；源版本 `0b19a3339034e3bd3de1e8246559d453301f07eb`。
+
+```{r setup, include=FALSE, eval=TRUE}
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+```
+
+## 4.4–4.5 Git 检查
+
+以下命令在 Terminal 中运行。现有 `casa` 仓库无需在课程子目录重新初始化。
+
+```bash
+git --version
+git status --short
+git branch --show-current
+git remote -v
+git log -5 --oneline
+git config --get user.name
+git config --get user.email
+```
+
+## 检查提交内容
+
+查看 Diff → 选择本次文件 → Commit → 核对远程与分支 → Push。Pull 前保留本地工作；GitHub 文件保存和老师表格登记分别处理。
+
+```bash
+# Terminal 中按选定文件提交。
+git diff -- week04/practical-中文教程.Rmd
+git diff --cached
+```
+
+## 4.6 R Markdown
+
+YAML 设置文档输出；Markdown 写说明，chunk 放 R 代码。示例温度不是真实气候观测。
+
+```{r small-reproducible-example}
+example_data <- data.frame(month = month.abb[1:4], temperature = c(8, 9, 12, 15))
+example_data
+plot(example_data$temperature, type = "b", xaxt = "n", xlab = "Month", ylab = "Example temperature")
+axis(1, at = 1:4, labels = example_data$month)
+mean(example_data$temperature)
+```
+
+## 代码块选项
+
+`echo` 控制代码显示，`include` 控制整块输出，`eval` 控制执行；message、warning 仅控制提示显示。普通分析块从新会话 Knit。
+
+```{r options-demo, echo=FALSE}
+summary(example_data$temperature)
+```
+
+## Fork、分支与 Homework
+
+Fork 创建账户下派生仓库，branch 是仓库内部工作线，PR 用于审阅合入。
+
+GII 2010–2019 差值地图及 GitHub 分享见 [homework.Rmd](homework.Rmd)。课堂示例结果见 [运行记录](../README.md)。阅读：R Markdown Guide 第 2 章与可复现研究文章。
+
+## 资料链接
+
+- [官方第 4 章](https://andrewmaclachlan.github.io/CASA0005repo/git-github-and-rmarkdown.html)
+- [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- [复合指标时间序列](https://hdr.undp.org/data-center/documentation-and-downloads)

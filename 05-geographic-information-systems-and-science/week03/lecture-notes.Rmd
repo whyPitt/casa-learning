@@ -1,0 +1,105 @@
+---
+title: "CASA0005 Week 03 — 世界的表达、投影与空间描述统计"
+date: "2026-10-22"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+# 世界的表达与空间数据
+
+Lecture 3 的主题是 Representing the World；Practical 3 为 Spatial descriptive statistics。代码见 [本周 Practical](practical-中文教程.Rmd)，未来气温比较见 [Homework](homework.Rmd)。
+
+原作者 Andy MacLachlan、Adam Dennett、Claire Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与文档适配经 AI 辅助，见[改编范围](../来源与改编范围.md)。
+
+## Representation、Vector 与 Raster
+
+空间表达取决于研究问题和尺度：点表示城市参考位置，面表示行政范围，栅格表达连续或分类表面。粗数据重采样成细网格不会增加真实观测信息。
+
+| 模型 | 结构 | 课堂对象 |
+|---|---|---|
+| Vector | 点、线、多边形及属性 | sf 国界、城市点 |
+| Raster | 规则格网和图层 | terra SpatRaster 月气温 |
+
+## CRS 与投影
+
+CRS 定义坐标基准、轴和单位。经纬度为角度，投影坐标常以米为单位；一度经度的地面距离随纬度改变。投影无法在全球同时完整保持面积、距离、角度和形状。
+
+- Ellipsoid：地球形状的数学近似；Datum：模型与实际地球的定位关系。
+- EPSG:4326：WGS84 经纬度；3857：Web Mercator；3112：澳大利亚 Lambert 投影。
+- WKT、PROJ string：CRS 的文字表达。
+- `st_set_crs()` 设置标签；`st_transform()` 根据已知原 CRS 计算新坐标。
+- QGIS 即时重投影改变显示，不等于改写源文件坐标。
+
+## Practical 顺序与数据
+
+1. GADM Australia：`st_layers()` 找国家层，`st_read()` 读取，`st_crs()` 检查后转换至 3112。
+2. WorldClim v2.1：历史 tavg，1970–2000，5 arc-minutes，°C；12 个 TIFF 对应 1–12 月。`5m` 不是 5 米。
+3. `rast()` 读取，`project()` 演示 Mollweide 及反向转换。连续温度可双线性重采样；类别数据采用类别保持方法。分析保留原网格。
+4. `dir_info()` → 文件筛选 → `pull()` → `rast()`，按 Jan–Dec 组织月份层。
+5. `extract()` 按已知 CRS 的城市点读取格值。Broome 修正为南纬 −17.96；R 区分 `Site` 与 `site`。
+6. Perth 月份直方图 → 全国 crop/mask → ggplot 分组、分面和描述统计。
+
+`crop` 限定矩形范围，`mask` 按边界将外部格子设为 NA。边界简化仅用于显示；正式掩膜使用原边界。一个城市点的格值不等于城市行政区平均，海岸 NA 需检查原始坐标和格网。
+
+## 观察单位与描述统计
+
+| 输入 | 频数或变化的单位 |
+|---|---|
+| Perth 12 个月 | 月份与季节 |
+| 全国单月有效格子 | 空间格网单元 |
+| 全国所有月份的格子 | 空间与月份混合 |
+
+| 指标 | 含义 |
+|---|---|
+| mean | 值的算术平均 |
+| median | 中心位置 |
+| sd | 输入数值的离散程度 |
+| min / max | 当前所选格网或月份的范围 |
+| IQR | Q3−Q1，中间 50% 数值的跨度 |
+
+直方图的 breaks、counts、mids、density 为分箱、频数、中心和密度。分箱改变显示而不改变原值。NA 表示缺失或被遮罩，不能当作 0°C；`na.rm=TRUE` 只忽略缺失。经纬格网的简单均值为格子等权，未自动按面积、人口或月份天数加权。
+
+## 函数分工
+
+| 工具 | 主要函数 |
+|---|---|
+| sf | st_layers、st_read、st_crs、st_transform、st_simplify |
+| terra | rast、project、extract、crop、mask、crs |
+| fs / stringr | dir_info、str_detect |
+| dplyr / tidyr | filter、select、pull、group_by、summarise、pivot_longer、drop_na |
+| tidyterra / ggplot2 | geom_spatraster、geom_histogram、geom_vline、facet_grid |
+| plotly | plot_ly、add_histogram、layout |
+
+## Homework：未来气候情景
+
+任选国家、GCM 和分辨率，比较主要城市在 2081–2100 年 SSP1 与 SSP5 的 tmax。两个情景固定模型、时期、网格、城市集合和取样规则。`ssp126` 与 `ssp585` 是具体情景编码；每组 12 层为该二十年时期的月气候值，不是逐年或逐日预测。tmax 不是二十年内的绝对最高纪录。
+
+差值采用 `SSP585 − SSP126`，区分“配对差值的中位数”与“两个中位数之差”。单一模型、有限点位与格网尺度限制解释范围。
+
+本课程表连接使用 dplyr joins；旧笔记的 R merge 示例不再作为当前操作方法。
+
+## 阅读与资料
+
+Navarro《Learning Statistics with R》第 5 章；Beecham 配色与布局；Geocomputation with R 第 7 章。反馈入口与正式提交入口分别处理，具体任务以 Moodle 和教师通知为准。
+
+- [Module Outline](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=1)
+- [Lecture and Workshop Material](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=2)
+- [当前 Practical 第 3 章](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html)
+- [Assessment](https://moodle.ucl.ac.uk/course/view.php?id=62319&section=3)
+- [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- [External usage](https://andrewmaclachlan.github.io/CASA0005repo/external-usage.html#license)
+- [Geographic data in R](https://r.geocompx.org/spatial-class.html)
+- [sf CRS 文档](https://r-spatial.github.io/sf/reference/st_crs.html)
+- [WorldClim v2.1 historical climate](https://www.worldclim.org/data/worldclim21.html)
+- [terra project](https://rspatial.github.io/terra/reference/project.html)
+- [terra extract](https://rspatial.github.io/terra/reference/extract.html)
+- [crop](https://rspatial.github.io/terra/reference/crop.html)
+- [mask](https://rspatial.github.io/terra/reference/mask.html)
+- [WorldClim CMIP6 future climate](https://www.worldclim.org/data/cmip6/cmip6climate.html)
+- [国家边界 GADM](https://gadm.org/data.html)
+- [World city points（老师提供）](https://hub.arcgis.com/datasets/esri::world-cities/explore)
+- [Learning statistics with R，第 5 章 Descriptive statistics](https://learningstatisticswithr.com/book/descriptives.html)
+- [Exploratory data analysis: using colour and layout for comparison](https://www.roger-beecham.com/comp-sds/class/04-class/)
+- [当前入口](https://r.geocompx.org/reproj-geo-data.html)

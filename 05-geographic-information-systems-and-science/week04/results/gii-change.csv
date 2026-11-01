@@ -1,0 +1,245 @@
+iso3,world_name,source_parts,join_key,undp_name,gii_2010,gii_2019,gii_change,change_group
+ABW,Aruba,1,ABW,NA,NA,NA,NA,Missing one/both years
+AFG,Afghanistan,1,AFG,Afghanistan,0.704,0.676,-0.027999999999999914,GII decreased
+AGO,Angola,1,AGO,Angola,0.556,0.536,-0.020000000000000018,GII decreased
+AIA,Anguilla,1,AIA,NA,NA,NA,NA,Missing one/both years
+ALB,Albania,1,ALB,Albania,0.192,0.131,-0.061,GII decreased
+AND,Andorra,1,AND,Andorra,NA,NA,NA,Missing one/both years
+ARE,United Arab Emirates,1,ARE,United Arab Emirates,0.165,0.039,-0.126,GII decreased
+ARG,Argentina,1,ARG,Argentina,0.37,0.283,-0.08700000000000002,GII decreased
+ARM,Armenia,1,ARM,Armenia,0.352,0.216,-0.13599999999999998,GII decreased
+ASM,American Samoa,1,ASM,NA,NA,NA,NA,Missing one/both years
+ATA,Antarctica,1,ATA,NA,NA,NA,NA,Missing one/both years
+ATF,French Southern Territories / Glorioso Islands / Juan De Nova Island,3,ATF,NA,NA,NA,NA,Missing one/both years
+ATG,Antigua and Barbuda,1,ATG,Antigua and Barbuda,NA,NA,NA,Missing one/both years
+AUS,Australia,1,AUS,Australia,0.137,0.079,-0.05800000000000001,GII decreased
+AUT,Austria,1,AUT,Austria,0.105,0.052,-0.053,GII decreased
+AZE,Azerbaijan,1,AZE,Azerbaijan,0.333,0.314,-0.019000000000000017,GII decreased
+BDI,Burundi,1,BDI,Burundi,0.536,0.501,-0.03500000000000003,GII decreased
+BEL,Belgium,1,BEL,Belgium,0.09,0.047,-0.043,GII decreased
+BEN,Benin,1,BEN,Benin,0.637,0.636,-0.0010000000000000009,GII decreased
+BES,Bonaire / Saba / Saint Eustatius,3,BES,NA,NA,NA,NA,Missing one/both years
+BFA,Burkina Faso,1,BFA,Burkina Faso,0.599,0.571,-0.028000000000000025,GII decreased
+BGD,Bangladesh,1,BGD,Bangladesh,0.603,0.52,-0.08299999999999996,GII decreased
+BGR,Bulgaria,1,BGR,Bulgaria,0.228,0.205,-0.02300000000000002,GII decreased
+BHR,Bahrain,1,BHR,Bahrain,0.253,0.191,-0.062,GII decreased
+BHS,Bahamas,1,BHS,Bahamas,0.371,0.335,-0.035999999999999976,GII decreased
+BIH,Bosnia and Herzegovina,1,BIH,Bosnia and Herzegovina,NA,0.153,NA,Missing one/both years
+BLM,Saint Barthelemy,1,BLM,NA,NA,NA,NA,Missing one/both years
+BLR,Belarus,1,BLR,Belarus,0.149,0.096,-0.05299999999999999,GII decreased
+BLZ,Belize,1,BLZ,Belize,0.406,0.461,0.05499999999999999,GII increased
+BMU,Bermuda,1,BMU,NA,NA,NA,NA,Missing one/both years
+BOL,Bolivia,1,BOL,Bolivia (Plurinational State of),0.48,0.429,-0.05099999999999999,GII decreased
+BRA,Brazil,1,BRA,Brazil,0.447,0.398,-0.04899999999999999,GII decreased
+BRB,Barbados,1,BRB,Barbados,0.356,0.316,-0.03999999999999998,GII decreased
+BRN,Brunei Darussalam,1,BRN,Brunei Darussalam,NA,0.286,NA,Missing one/both years
+BTN,Bhutan,1,BTN,Bhutan,0.442,0.265,-0.177,GII decreased
+BVT,Bouvet Island,1,BVT,NA,NA,NA,NA,Missing one/both years
+BWA,Botswana,1,BWA,Botswana,0.509,0.466,-0.04299999999999998,GII decreased
+CAF,Central African Republic,1,CAF,Central African Republic,NA,NA,NA,Missing one/both years
+CAN,Canada,1,CAN,Canada,0.137,0.072,-0.06500000000000002,GII decreased
+CCK,Cocos Islands,1,CCK,NA,NA,NA,NA,Missing one/both years
+CHE,Switzerland,1,CHE,Switzerland,0.056,0.016,-0.04,GII decreased
+CHL,Chile,1,CHL,Chile,0.35,0.195,-0.15499999999999997,GII decreased
+CHN,China,1,CHN,China,0.226,0.159,-0.067,GII decreased
+CIV,Côte d'Ivoire,1,CIV,Côte d'Ivoire,0.643,0.605,-0.038000000000000034,GII decreased
+CMR,Cameroon,1,CMR,Cameroon,0.62,0.567,-0.05300000000000005,GII decreased
+COD,Congo DRC,1,COD,Congo (Democratic Republic of the),0.653,0.618,-0.03500000000000003,GII decreased
+COG,Congo,1,COG,Congo,0.621,0.593,-0.028000000000000025,GII decreased
+COK,Cook Islands,1,COK,NA,NA,NA,NA,Missing one/both years
+COL,Colombia,1,COL,Colombia,0.454,0.411,-0.04300000000000004,GII decreased
+COM,Comoros,1,COM,Comoros,NA,0.575,NA,Missing one/both years
+CPV,Cabo Verde,1,CPV,Cabo Verde,NA,0.337,NA,Missing one/both years
+CRI,Costa Rica,1,CRI,Costa Rica,0.315,0.234,-0.08099999999999999,GII decreased
+CUB,Cuba,1,CUB,Cuba,0.33,0.304,-0.026000000000000023,GII decreased
+CUW,Curacao,1,CUW,NA,NA,NA,NA,Missing one/both years
+CXR,Christmas Island,1,CXR,NA,NA,NA,NA,Missing one/both years
+CYM,Cayman Islands,1,CYM,NA,NA,NA,NA,Missing one/both years
+CYP,Cyprus,1,CYP,Cyprus,0.191,0.235,0.043999999999999984,GII increased
+CZE,Czech Republic,1,CZE,Czechia,0.141,0.124,-0.016999999999999987,GII decreased
+DEU,Germany,1,DEU,Germany,0.096,0.076,-0.020000000000000004,GII decreased
+DJI,Djibouti,1,DJI,Djibouti,NA,0.492,NA,Missing one/both years
+DMA,Dominica,1,DMA,Dominica,NA,NA,NA,Missing one/both years
+DNK,Denmark,1,DNK,Denmark,0.048,0.016,-0.032,GII decreased
+DOM,Dominican Republic,1,DOM,Dominican Republic,0.479,0.437,-0.04199999999999998,GII decreased
+DZA,Algeria,1,DZA,Algeria,0.508,0.385,-0.123,GII decreased
+ECU,Ecuador,1,ECU,Ecuador,0.431,0.388,-0.04299999999999998,GII decreased
+EGY,Egypt,1,EGY,Egypt,0.552,0.424,-0.12800000000000006,GII decreased
+ERI,Eritrea,1,ERI,Eritrea,NA,NA,NA,Missing one/both years
+ESP,Canarias / Spain,2,ESP,Spain,0.104,0.055,-0.048999999999999995,GII decreased
+EST,Estonia,1,EST,Estonia,0.159,0.089,-0.07,GII decreased
+ETH,Ethiopia,1,ETH,Ethiopia,0.601,0.509,-0.09199999999999997,GII decreased
+FIN,Finland,1,FIN,Finland,0.073,0.031,-0.041999999999999996,GII decreased
+FJI,Fiji,1,FJI,Fiji,0.39,0.317,-0.07300000000000001,GII decreased
+FLK,Falkland Islands,1,FLK,NA,NA,NA,NA,Missing one/both years
+FRA,France,1,FRA,France,0.129,0.061,-0.068,GII decreased
+FRO,Faroe Islands,1,FRO,NA,NA,NA,NA,Missing one/both years
+FSM,Micronesia,1,FSM,Micronesia (Federated States of),NA,NA,NA,Missing one/both years
+GAB,Gabon,1,GAB,Gabon,0.523,0.527,0.0040000000000000036,GII increased
+GBR,United Kingdom,1,GBR,United Kingdom,0.178,0.105,-0.073,GII decreased
+GEO,Georgia,1,GEO,Georgia,0.43,0.296,-0.134,GII decreased
+GGY,Guernsey,1,GGY,NA,NA,NA,NA,Missing one/both years
+GHA,Ghana,1,GHA,Ghana,0.571,0.525,-0.04599999999999993,GII decreased
+GIB,Gibraltar,1,GIB,NA,NA,NA,NA,Missing one/both years
+GIN,Guinea,1,GIN,Guinea,NA,0.631,NA,Missing one/both years
+GLP,Guadeloupe,1,GLP,NA,NA,NA,NA,Missing one/both years
+GMB,Gambia,1,GMB,Gambia,0.659,0.586,-0.07300000000000006,GII decreased
+GNB,Guinea-Bissau,1,GNB,Guinea-Bissau,NA,0.622,NA,Missing one/both years
+GNQ,Equatorial Guinea,1,GNQ,Equatorial Guinea,NA,NA,NA,Missing one/both years
+GRC,Greece,1,GRC,Greece,0.156,0.122,-0.034,GII decreased
+GRD,Grenada,1,GRD,Grenada,NA,0.212,NA,Missing one/both years
+GRL,Greenland,1,GRL,NA,NA,NA,NA,Missing one/both years
+GTM,Guatemala,1,GTM,Guatemala,0.526,0.5,-0.026000000000000023,GII decreased
+GUF,French Guiana,1,GUF,NA,NA,NA,NA,Missing one/both years
+GUM,Guam,1,GUM,NA,NA,NA,NA,Missing one/both years
+GUY,Guyana,1,GUY,Guyana,NA,0.439,NA,Missing one/both years
+HMD,Heard Island and McDonald Islands,1,HMD,NA,NA,NA,NA,Missing one/both years
+HND,Honduras,1,HND,Honduras,0.473,0.445,-0.02799999999999997,GII decreased
+HRV,Croatia,1,HRV,Croatia,0.135,0.118,-0.017000000000000015,GII decreased
+HTI,Haiti,1,HTI,Haiti,0.613,0.625,0.01200000000000001,GII increased
+HUN,Hungary,1,HUN,Hungary,0.25,0.237,-0.013000000000000012,GII decreased
+IDN,Indonesia,1,IDN,Indonesia,0.494,0.436,-0.057999999999999996,GII decreased
+IMN,Isle of Man,1,IMN,NA,NA,NA,NA,Missing one/both years
+IND,India,1,IND,India,0.566,0.464,-0.10199999999999992,GII decreased
+IOT,British Indian Ocean Territory,1,IOT,NA,NA,NA,NA,Missing one/both years
+IRL,Ireland,1,IRL,Ireland,0.163,0.076,-0.08700000000000001,GII decreased
+IRN,Iran,1,IRN,Iran (Islamic Republic of),0.545,0.463,-0.08200000000000002,GII decreased
+IRQ,Iraq,1,IRQ,Iraq,0.612,0.571,-0.041000000000000036,GII decreased
+ISL,Iceland,1,ISL,Iceland,0.093,0.045,-0.048,GII decreased
+ISR,Israel,1,ISR,Israel,0.144,0.094,-0.04999999999999999,GII decreased
+ITA,Italy,1,ITA,Italy,0.123,0.052,-0.07100000000000001,GII decreased
+JAM,Jamaica,1,JAM,Jamaica,0.43,0.385,-0.044999999999999984,GII decreased
+JEY,Jersey,1,JEY,NA,NA,NA,NA,Missing one/both years
+JOR,Jordan,1,JOR,Jordan,0.489,0.439,-0.04999999999999999,GII decreased
+JPN,Japan,1,JPN,Japan,0.118,0.082,-0.03599999999999999,GII decreased
+KAZ,Kazakhstan,1,KAZ,Kazakhstan,0.27,0.192,-0.07800000000000001,GII decreased
+KEN,Kenya,1,KEN,Kenya,0.607,0.535,-0.07199999999999995,GII decreased
+KGZ,Kyrgyzstan,1,KGZ,Kyrgyzstan,0.368,0.362,-0.006000000000000005,GII decreased
+KHM,Cambodia,1,KHM,Cambodia,0.515,0.496,-0.019000000000000017,GII decreased
+KIR,Kiribati,1,KIR,Kiribati,NA,NA,NA,Missing one/both years
+KNA,Saint Kitts and Nevis,1,KNA,Saint Kitts and Nevis,NA,NA,NA,Missing one/both years
+KOR,South Korea,1,KOR,Korea (Republic of),0.078,0.051,-0.027000000000000003,GII decreased
+KWT,Kuwait,1,KWT,Kuwait,0.207,0.202,-0.004999999999999977,GII decreased
+LAO,Laos,1,LAO,Lao People's Democratic Republic,0.533,0.478,-0.05500000000000005,GII decreased
+LBN,Lebanon,1,LBN,Lebanon,0.433,0.384,-0.04899999999999999,GII decreased
+LBR,Liberia,1,LBR,Liberia,0.644,0.65,0.006000000000000005,GII increased
+LBY,Libya,1,LBY,Libya,0.294,0.264,-0.02999999999999997,GII decreased
+LCA,Saint Lucia,1,LCA,Saint Lucia,0.369,0.338,-0.030999999999999972,GII decreased
+LIE,Liechtenstein,1,LIE,Liechtenstein,NA,NA,NA,Missing one/both years
+LKA,Sri Lanka,1,LKA,Sri Lanka,0.41,0.367,-0.04299999999999998,GII decreased
+LSO,Lesotho,1,LSO,Lesotho,0.59,0.56,-0.029999999999999916,GII decreased
+LTU,Lithuania,1,LTU,Lithuania,0.15,0.121,-0.028999999999999998,GII decreased
+LUX,Luxembourg,1,LUX,Luxembourg,0.112,0.062,-0.05,GII decreased
+LVA,Latvia,1,LVA,Latvia,0.229,0.164,-0.065,GII decreased
+MAF,Saint Martin,1,MAF,NA,NA,NA,NA,Missing one/both years
+MAR,Morocco,1,MAR,Morocco,0.554,0.448,-0.10600000000000004,GII decreased
+MCO,Monaco,1,MCO,Monaco,NA,NA,NA,Missing one/both years
+MDA,Moldova,1,MDA,Moldova (Republic of),0.239,0.183,-0.055999999999999994,GII decreased
+MDG,Madagascar,1,MDG,Madagascar,NA,NA,NA,Missing one/both years
+MDV,Maldives,1,MDV,Maldives,0.395,0.325,-0.07,GII decreased
+MEX,Mexico,1,MEX,Mexico,0.418,0.366,-0.05199999999999999,GII decreased
+MHL,Marshall Islands,1,MHL,Marshall Islands,NA,NA,NA,Missing one/both years
+MKD,North Macedonia,1,MKD,North Macedonia,0.18,0.14,-0.03999999999999998,GII decreased
+MLI,Mali,1,MLI,Mali,0.666,0.671,0.0050000000000000044,GII increased
+MLT,Malta,1,MLT,Malta,0.263,0.161,-0.10200000000000001,GII decreased
+MMR,Myanmar,1,MMR,Myanmar,NA,0.5,NA,Missing one/both years
+MNE,Montenegro,1,MNE,Montenegro,0.21,0.113,-0.09699999999999999,GII decreased
+MNG,Mongolia,1,MNG,Mongolia,0.416,0.311,-0.10499999999999998,GII decreased
+MNP,Northern Mariana Islands,1,MNP,NA,NA,NA,NA,Missing one/both years
+MOZ,Mozambique,1,MOZ,Mozambique,0.545,0.491,-0.05400000000000005,GII decreased
+MRT,Mauritania,1,MRT,Mauritania,0.644,0.612,-0.03200000000000003,GII decreased
+MSR,Montserrat,1,MSR,NA,NA,NA,NA,Missing one/both years
+MTQ,Martinique,1,MTQ,NA,NA,NA,NA,Missing one/both years
+MUS,Mauritius,1,MUS,Mauritius,0.37,0.325,-0.044999999999999984,GII decreased
+MWI,Malawi,1,MWI,Malawi,0.614,0.577,-0.03700000000000003,GII decreased
+MYS,Malaysia,1,MYS,Malaysia,0.262,0.193,-0.069,GII decreased
+MYT,Mayotte,1,MYT,NA,NA,NA,NA,Missing one/both years
+NAM,Namibia,1,NAM,Namibia,0.541,0.456,-0.08500000000000002,GII decreased
+NCL,New Caledonia,1,NCL,NA,NA,NA,NA,Missing one/both years
+NER,Niger,1,NER,Niger,0.692,0.625,-0.06699999999999995,GII decreased
+NFK,Norfolk Island,1,NFK,NA,NA,NA,NA,Missing one/both years
+NGA,Nigeria,1,NGA,Nigeria,0.67,0.69,0.019999999999999907,GII increased
+NIC,Nicaragua,1,NIC,Nicaragua,0.478,0.421,-0.056999999999999995,GII decreased
+NIU,Niue,1,NIU,NA,NA,NA,NA,Missing one/both years
+NLD,Netherlands,1,NLD,Netherlands,0.052,0.027,-0.024999999999999998,GII decreased
+NOR,Norway,1,NOR,Norway,0.07,0.014,-0.05600000000000001,GII decreased
+NPL,Nepal,1,NPL,Nepal,0.529,0.503,-0.026000000000000023,GII decreased
+NRU,Nauru,1,NRU,Nauru,NA,NA,NA,Missing one/both years
+NZL,New Zealand,1,NZL,New Zealand,0.165,0.097,-0.068,GII decreased
+OMN,Oman,1,OMN,Oman,0.33,0.242,-0.08800000000000002,GII decreased
+PAK,Pakistan,1,PAK,Pakistan,0.595,0.555,-0.039999999999999925,GII decreased
+PAN,Panama,1,PAN,Panama,0.482,0.392,-0.08999999999999997,GII decreased
+PCN,Pitcairn,1,PCN,NA,NA,NA,NA,Missing one/both years
+PER,Peru,1,PER,Peru,0.396,0.367,-0.029000000000000026,GII decreased
+PHL,Philippines,1,PHL,Philippines,0.442,0.371,-0.07100000000000001,GII decreased
+PLW,Palau,1,PLW,Palau,NA,NA,NA,Missing one/both years
+PNG,Papua New Guinea,1,PNG,Papua New Guinea,0.682,0.816,0.1339999999999999,GII increased
+POL,Poland,1,POL,Poland,0.17,0.108,-0.06200000000000001,GII decreased
+PRI,Puerto Rico,1,PRI,NA,NA,NA,NA,Missing one/both years
+PRK,North Korea,1,PRK,Korea (Democratic People's Rep. of),NA,NA,NA,Missing one/both years
+PRT,Azores / Madeira / Portugal,3,PRT,Portugal,0.127,0.077,-0.05,GII decreased
+PRY,Paraguay,1,PRY,Paraguay,0.483,0.436,-0.046999999999999986,GII decreased
+PSE,Palestinian Territory,1,PSE,"Palestine, State of",NA,NA,NA,Missing one/both years
+PYF,French Polynesia,1,PYF,NA,NA,NA,NA,Missing one/both years
+QAT,Qatar,1,QAT,Qatar,0.663,0.162,-0.501,GII decreased
+REU,Réunion,1,REU,NA,NA,NA,NA,Missing one/both years
+ROU,Romania,1,ROU,Romania,0.342,0.228,-0.11400000000000002,GII decreased
+RUS,Russian Federation,1,RUS,Russian Federation,0.274,0.16,-0.11400000000000002,GII decreased
+RWA,Rwanda,1,RWA,Rwanda,0.451,0.408,-0.04300000000000004,GII decreased
+SAU,Saudi Arabia,1,SAU,Saudi Arabia,0.754,0.283,-0.47100000000000003,GII decreased
+SDN,Sudan,1,SDN,Sudan,0.607,0.589,-0.018000000000000016,GII decreased
+SEN,Senegal,1,SEN,Senegal,0.575,0.506,-0.06899999999999995,GII decreased
+SGP,Singapore,1,SGP,Singapore,0.075,0.047,-0.027999999999999997,GII decreased
+SGS,South Georgia and South Sandwich Islands,1,SGS,NA,NA,NA,NA,Missing one/both years
+SHN,Saint Helena,1,SHN,NA,NA,NA,NA,Missing one/both years
+SJM,Svalbard,1,SJM,NA,NA,NA,NA,Missing one/both years
+SLB,Solomon Islands,1,SLB,Solomon Islands,NA,0.525,NA,Missing one/both years
+SLE,Sierra Leone,1,SLE,Sierra Leone,0.652,0.612,-0.040000000000000036,GII decreased
+SLV,El Salvador,1,SLV,El Salvador,0.398,0.358,-0.040000000000000036,GII decreased
+SMR,San Marino,1,SMR,San Marino,NA,NA,NA,Missing one/both years
+SOM,Somalia,1,SOM,Somalia,NA,NA,NA,Missing one/both years
+SPM,Saint Pierre and Miquelon,1,SPM,NA,NA,NA,NA,Missing one/both years
+SRB,Serbia,1,SRB,Serbia,0.208,0.118,-0.09,GII decreased
+SSD,South Sudan,1,SSD,South Sudan,NA,NA,NA,Missing one/both years
+STP,Sao Tome and Principe,1,STP,Sao Tome and Principe,0.535,0.497,-0.038000000000000034,GII decreased
+SUR,Suriname,1,SUR,Suriname,0.516,0.4,-0.11599999999999999,GII decreased
+SVK,Slovakia,1,SVK,Slovakia,0.203,0.193,-0.010000000000000009,GII decreased
+SVN,Slovenia,1,SVN,Slovenia,0.127,0.069,-0.057999999999999996,GII decreased
+SWE,Sweden,1,SWE,Sweden,0.05,0.022,-0.028000000000000004,GII decreased
+SWZ,Eswatini,1,SWZ,Eswatini (Kingdom of),NA,0.526,NA,Missing one/both years
+SXM,Sint Maarten,1,SXM,NA,NA,NA,NA,Missing one/both years
+SYC,Seychelles,1,SYC,Seychelles,NA,NA,NA,Missing one/both years
+SYR,Syria,1,SYR,Syrian Arab Republic,0.494,0.49,-0.0040000000000000036,GII decreased
+TCA,Turks and Caicos Islands,1,TCA,NA,NA,NA,NA,Missing one/both years
+TCD,Chad,1,TCD,Chad,NA,0.7,NA,Missing one/both years
+TGO,Togo,1,TGO,Togo,0.626,0.585,-0.041000000000000036,GII decreased
+THA,Thailand,1,THA,Thailand,0.368,0.31,-0.057999999999999996,GII decreased
+TJK,Tajikistan,1,TJK,Tajikistan,0.357,0.292,-0.065,GII decreased
+TKL,Tokelau,1,TKL,NA,NA,NA,NA,Missing one/both years
+TKM,Turkmenistan,1,TKM,Turkmenistan,NA,NA,NA,Missing one/both years
+TLS,Timor-Leste,1,TLS,Timor-Leste,0.531,0.409,-0.12200000000000005,GII decreased
+TON,Tonga,1,TON,Tonga,0.767,0.45,-0.317,GII decreased
+TTO,Trinidad and Tobago,1,TTO,Trinidad and Tobago,0.332,0.267,-0.065,GII decreased
+TUN,Tunisia,1,TUN,Tunisia,0.275,0.253,-0.02200000000000002,GII decreased
+TUR,Turkiye,1,TUR,Türkiye,0.411,0.27,-0.14099999999999996,GII decreased
+TUV,Tuvalu,1,TUV,Tuvalu,NA,NA,NA,Missing one/both years
+TZA,Tanzania,1,TZA,Tanzania (United Republic of),0.564,0.516,-0.04799999999999993,GII decreased
+UGA,Uganda,1,UGA,Uganda,0.551,0.528,-0.02300000000000002,GII decreased
+UKR,Ukraine,1,UKR,Ukraine,NA,NA,NA,Missing one/both years
+UMI,United States Minor Outlying Islands,1,UMI,NA,NA,NA,NA,Missing one/both years
+URY,Uruguay,1,URY,Uruguay,0.318,0.256,-0.062,GII decreased
+USA,United States,1,USA,United States,0.245,0.191,-0.05399999999999999,GII decreased
+UZB,Uzbekistan,1,UZB,Uzbekistan,0.272,0.269,-0.0030000000000000027,GII decreased
+VAT,Vatican City,1,VAT,NA,NA,NA,NA,Missing one/both years
+VCT,Saint Vincent and the Grenadines,1,VCT,Saint Vincent and the Grenadines,NA,NA,NA,Missing one/both years
+VEN,Venezuela,1,VEN,Venezuela (Bolivarian Republic of),0.488,0.487,-0.0010000000000000009,GII decreased
+VGB,British Virgin Islands,1,VGB,NA,NA,NA,NA,Missing one/both years
+VIR,US Virgin Islands,1,VIR,NA,NA,NA,NA,Missing one/both years
+VNM,Vietnam,1,VNM,Viet Nam,0.335,0.318,-0.017000000000000015,GII decreased
+VUT,Vanuatu,1,VUT,Vanuatu,0.536,0.797,0.261,GII increased
+WLF,Wallis and Futuna,1,WLF,NA,NA,NA,NA,Missing one/both years
+WSM,Samoa,1,WSM,Samoa,NA,0.438,NA,Missing one/both years
+YEM,Yemen,1,YEM,Yemen,NA,0.809,NA,Missing one/both years
+ZAF,South Africa,1,ZAF,South Africa,0.441,0.395,-0.045999999999999985,GII decreased
+ZMB,Zambia,1,ZMB,Zambia,0.579,0.521,-0.05799999999999994,GII decreased
+ZWE,Zimbabwe,1,ZWE,Zimbabwe,0.595,0.525,-0.06999999999999995,GII decreased

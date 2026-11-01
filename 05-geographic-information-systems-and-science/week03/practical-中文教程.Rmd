@@ -1,0 +1,232 @@
+---
+title: "CASA0005 第三周：投影、WorldClim、空间提取和描述统计"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+按[官方第 3 章](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html)顺序整理CRS、栅格提取与描述统计。打开课程 `casa0005.Rproj`，代码按顺序运行；Knit 从头计算普通分析块；安装、导出与可选联网分支单独执行。
+
+来源：MacLachlan、Dennett、Dooley；[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。中文整理与适配经 AI 辅助，见[改编范围](../来源与改编范围.md)；源版本 `0b19a3339034e3bd3de1e8246559d453301f07eb`。
+
+```{r setup, include=FALSE, eval=TRUE}
+knitr::opts_chunk$set(eval = TRUE, echo = TRUE)
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 120) # 可复现的 PNG 设备
+```
+
+## 数据与包
+
+GADM Australia 存为 `data/raw/week03/gadm41_AUS.gpkg`；WorldClim v2.1 的 12 个 tavg、5 角分 TIFF 存入 `data/raw/week03/worldclim/`。基准期 1970–2000，单位 °C，`5m` 为角分。来源与校验见 [数据记录](../data/SOURCES-week03.txt)。本机包安装至被忽略的 `.local-review/R-library`；仅补缺包，binary 安装适配 Mac。
+
+```{r packages, eval=FALSE}
+helper <- c("tutorial-tools.R", "../tutorial-tools.R")
+source(helper[file.exists(helper)][1])
+root <- gis_root()
+local_lib <- file.path(root, ".local-review", "R-library")
+dir.create(local_lib, recursive = TRUE, showWarnings = FALSE)
+.libPaths(c(local_lib, .libPaths()))
+required_packages <- c("sf", "terra", "tidyverse", "fs", "tidyterra", "plotly")
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_packages)) {
+  options(timeout = max(1200, getOption("timeout")))
+  install.packages(missing_packages, lib = local_lib,
+                   repos = "https://cloud.r-project.org", type = "binary")
+}
+```
+
+## 加载工具
+
+新会话先加载工具，恢复本地包库路径。
+
+```{r tools}
+helper <- c("tutorial-tools.R", "../tutorial-tools.R")
+source(helper[file.exists(helper)][1])
+root <- gis_root()
+local_lib <- file.path(root, ".local-review", "R-library")
+if (dir.exists(local_lib)) .libPaths(c(local_lib, .libPaths()))
+gis_packages(c("sf", "terra", "tidyverse", "fs"))
+library(sf)
+library(terra)
+library(tidyverse)
+```
+
+## 3.5.1 矢量 CRS
+
+读取以 `_0` 结尾的国家层。4326 为经纬度，3112 为澳大利亚米制 Lambert 投影。
+
+```{r vector-crs}
+aus_file <- gis_file("data/raw/week03/gadm41_AUS.gpkg", "^gadm41_AUS\\.gpkg$")
+layers <- st_layers(aus_file)
+layers
+aus_layer <- layers$name[grepl("_0$", layers$name)]
+stopifnot(length(aus_layer) == 1)
+Ausoutline <- st_read(aus_file, layer = aus_layer, quiet = TRUE)
+print(Ausoutline)
+st_crs(Ausoutline)
+st_crs(Ausoutline)$proj4string
+plot(st_geometry(Ausoutline))
+```
+
+## 转换坐标
+
+`st_transform()` 计算新坐标；`st_set_crs()` 仅设置标签，缺失 CRS 需查元数据。
+
+```{r transform-vector}
+stopifnot(!is.na(st_crs(Ausoutline)))
+AusoutlinePROJECTED <- st_transform(Ausoutline, 3112)
+st_bbox(Ausoutline)
+st_bbox(AusoutlinePROJECTED)
+plot(st_geometry(AusoutlinePROJECTED))
+
+AusoutlineSP <- as(Ausoutline, "Spatial")
+AusoutlineSF <- st_as_sf(AusoutlineSP)
+```
+
+## 3.5.2 读取一月栅格
+
+检查层、范围、分辨率和 CRS。
+
+```{r january}
+jan_file <- gis_file("data/raw/week03/worldclim/wc2.1_5m_tavg_01.tif", "^wc2\\.1_5m_tavg_01\\.tif$")
+jan <- terra::rast(jan_file)
+jan
+terra::res(jan)
+terra::crs(jan)
+plot(jan)
+```
+
+## 栅格投影演示
+
+连续温度使用双线性重采样；投回原坐标也不会恢复全部原值。后续保留原始栅格分析。
+
+```{r raster-reprojection}
+moll <- "+proj=moll +lon_0=0 +datum=WGS84 +units=m +no_defs"
+pr1 <- terra::project(jan, moll, method = "bilinear")
+plot(pr1)
+pr_back <- terra::project(pr1, "EPSG:4326", method = "bilinear")
+plot(pr_back)
+```
+
+## 3.5.3 十二个月图层
+
+只匹配 tavg、5 角分的 12 个月文件，按月份顺序命名 Jan–Dec。
+
+```{r monthly-stack}
+file_info <- fs::dir_info(dirname(jan_file))
+listfiles <- file_info %>%
+  filter(str_detect(basename(path), "^wc2\\.1_5m_tavg_[0-9]{2}\\.tif$")) %>%
+  arrange(path) %>% dplyr::select(path) %>% pull()
+stopifnot(length(listfiles) == 12)
+worldclimtemp <- terra::rast(as.character(listfiles))
+stopifnot(terra::nlyr(worldclimtemp) == 12)
+names(worldclimtemp) <- month.abb
+worldclimtemp[[1]]
+worldclimtemp$Jan
+```
+
+## 3.5.4 城市提取
+
+课堂 15 点按已知 CRS 转换后提取格值；Broome 纬度修正为 −17.96。格值不是城市行政区平均，海岸 NA 需核查。
+
+```{r city-extraction}
+samples <- tibble(
+  Site = c("Brisbane", "Melbourne", "Perth", "Sydney", "Broome", "Darwin", "Orange",
+           "Bunbury", "Cairns", "Adelaide", "Gold Coast", "Canberra", "Newcastle", "Wollongong", "Logan City"),
+  lon = c(153.03,144.96,115.86,151.21,122.23,130.84,149.10,115.64,145.77,138.6,153.43,149.13,151.78,150.89,153.12),
+  lat = c(-27.47,-37.91,-31.95,-33.87,-17.96,-12.46,-33.28,-33.33,-16.92,-34.93,-28,-35.28,-32.93,-34.42,-27.64))
+city_sf <- st_as_sf(samples, coords = c("lon", "lat"), crs = 4326)
+city_sf <- st_transform(city_sf, terra::crs(worldclimtemp))
+AUcitytemp <- terra::extract(worldclimtemp, terra::vect(city_sf))
+stopifnot(nrow(AUcitytemp) == nrow(samples))
+Aucitytemp2 <- bind_cols(samples %>% dplyr::select(Site), as_tibble(AUcitytemp) %>% dplyr::select(-ID))
+Aucitytemp2
+```
+
+## 3.6 Perth 直方图
+
+只选择月份温度列，频数单位为月份；breaks、counts、mids、density 分别为分箱、频数、中心和密度。
+
+```{r perth-histogram}
+Perthtemp <- Aucitytemp2 %>% filter(Site == "Perth")
+stopifnot(nrow(Perthtemp) == 1)
+perth_values <- Perthtemp %>% dplyr::select(all_of(month.abb)) %>% unlist(use.names = FALSE)
+stopifnot(length(perth_values) == 12, is.numeric(perth_values))
+hist(perth_values, col = "red", main = "Perth monthly climate normals", xlab = "Temperature (°C)")
+userbreak <- seq(floor(min(perth_values, na.rm = TRUE) / 2) * 2,
+                 ceiling(max(perth_values, na.rm = TRUE) / 2) * 2 + 2, by = 2)
+histinfo <- hist(perth_values, breaks = userbreak, plot = FALSE)
+histinfo$breaks
+histinfo$counts
+histinfo$mids
+histinfo$density
+plot(histinfo, col = "red")
+```
+
+## 全国裁剪与遮罩
+
+`crop` 缩小矩形范围，`mask` 去掉国家边界外格子；简化边界仅用于显示。此处直方图频数单位为格子。
+
+```{r crop-mask}
+plot(st_geometry(AusoutlinePROJECTED))
+AusoutSIMPLE <- st_simplify(AusoutlinePROJECTED, dTolerance = 1000, preserveTopology = TRUE)
+plot(st_geometry(AusoutSIMPLE))
+aus_for_raster <- st_transform(Ausoutline, terra::crs(worldclimtemp))
+Austemp <- terra::crop(worldclimtemp, terra::vect(aus_for_raster))
+exactAus <- terra::mask(Austemp, terra::vect(aus_for_raster))
+plot(exactAus$Mar)
+hist(exactAus$Mar, col = "red", main = "Australia: March grid-cell temperatures")
+```
+
+## 长表、分面与统计
+
+`Month` 为月份，`Temp` 为温度；统计为格子等权，未按面积、人口或月份天数加权。
+
+```{r dataframe-and-histogram}
+exactAusdf <- as.data.frame(exactAus, na.rm = FALSE)
+ggplot(exactAusdf, aes(x = Mar)) + geom_histogram(binwidth = 2, color = "black", fill = "white", na.rm = TRUE) +
+  geom_vline(xintercept = mean(exactAusdf$Mar, na.rm = TRUE), linetype = "dashed", color = "blue") +
+  labs(x = "Temperature (°C)", y = "Grid-cell frequency")
+squishdata <- exactAusdf %>% pivot_longer(all_of(month.abb), names_to = "Month", values_to = "Temp")
+twomonths <- squishdata %>% filter(Month %in% c("Jan", "Jun")) %>% drop_na(Temp)
+meantwomonths <- twomonths %>% group_by(Month) %>% summarise(mean = mean(Temp), .groups = "drop")
+ggplot(twomonths, aes(Temp, fill = Month, color = Month)) +
+  geom_histogram(position = "identity", alpha = 0.5, binwidth = 2) +
+  geom_vline(data = meantwomonths, aes(xintercept = mean, color = Month), linetype = "dashed")
+data_complete_cases <- squishdata %>% drop_na(Temp) %>% mutate(Month = factor(Month, levels = month.abb))
+ggplot(data_complete_cases, aes(Temp)) + geom_histogram(binwidth = 5) + facet_grid(Month ~ .)
+monthly_stats <- data_complete_cases %>% group_by(Month) %>%
+  summarise(n = n(), mean = mean(Temp), sd = sd(Temp), min = min(Temp), max = max(Temp), IQR = IQR(Temp), .groups = "drop")
+monthly_stats
+data_complete_cases %>% summarise(meanwholeyear = mean(Temp))
+```
+
+## 扩展：栅格图与交互直方图
+
+使用 tidyterra 与 plotly，比较一月和六月的格网温度分布。
+
+```{r optional-interactive-and-raster-ggplot, eval=FALSE}
+gis_packages(c("plotly", "tidyterra"))
+ggplot() + tidyterra::geom_spatraster(data = exactAus, aes(fill = Mar))
+jan_values <- filter(data_complete_cases, Month == "Jan")$Temp
+jun_values <- filter(data_complete_cases, Month == "Jun")$Temp
+plotly::plot_ly(alpha = 0.6) %>%
+  plotly::add_histogram(x = jan_values, name = "January", xbins = list(size = 2.5)) %>%
+  plotly::add_histogram(x = jun_values, name = "June", xbins = list(size = 2.5)) %>%
+  plotly::layout(barmode = "overlay", xaxis = list(title = "Temperature (°C)"), yaxis = list(title = "Grid-cell frequency"))
+```
+
+## Homework 与阅读
+
+未来 tmax 的 SSP126/SSP585 比较见 [homework.Rmd](homework.Rmd)，与课堂历史 tavg 分开。概念见 [lecture-notes.Rmd](lecture-notes.Rmd)，课堂结果见 [运行记录](../README.md)。阅读：Navarro 描述统计第 5 章、Geocomputation with R 重投影章节。
+
+## 资料链接
+
+- [官方第 3 章](https://andrewmaclachlan.github.io/CASA0005repo/spatial-descriptive-statistics.html)
+- [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- [GADM](https://gadm.org/download_country.html)
+- [WorldClim v2.1](https://www.worldclim.org/data/worldclim21.html)
+- [未来数据](https://www.worldclim.org/data/cmip6/cmip6climate.html)

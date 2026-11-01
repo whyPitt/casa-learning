@@ -1,0 +1,15 @@
+# Local R session and editor state
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+
+# Downloaded inputs, teaching material and generated outputs
+data/raw/
+materials/
+week[0-9][0-9]/data/processed/
+week[0-9][0-9]/outputs/
+
+# Local backups and repository review records
+.local-review/
